@@ -66,9 +66,6 @@ option(HIPSPARSELT_ENABLE_MARKER "Enable rocTracer marker support." ON)
 option(HIPSPARSELT_ENABLE_ASAN "Build with address sanitizer enabled." OFF)
 option(HIPSPARSELT_ENABLE_VERBOSE "Output additional build information." OFF)
 
-set(HIPSPARSELT_HIPBLASLT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../hipblaslt/next-cmake"
-    CACHE PATH "Path to hipblaslt directory."
-)
 set(HIPSPARSELT_COVERAGE_GTEST_FILTER "*pre_checkin*" CACHE STRING
                                                             "GTest filter for coverage tests."
 )
@@ -125,42 +122,80 @@ if(HIPSPARSELT_ENABLE_CUDA)
     message(STATUS "Found cusparseLt: ${cusparselt_LIBRARY}")
 endif()
 
+# if(HIPSPARSELT_ENABLE_HIP)
+#     set(HIPBLASLT_PATH "${HIPSPARSELT_HIPBLASLT_PATH}")
+#     if(NOT EXISTS "${HIPBLASLT_PATH}")
+#         message(
+#             FATAL_ERROR
+#                 "hipBLASLt not found at ${HIPBLASLT_PATH}. Please ensure hipblaslt is available."
+#         )
+#     endif()
+
+#     block(SCOPE_FOR VARIABLES)
+#     set(HIPBLASLT_ENABLE_HOST OFF CACHE BOOL "" FORCE)
+#     set(HIPBLASLT_ENABLE_CLIENT OFF CACHE BOOL "" FORCE)
+#     set(HIPBLASLT_ENABLE_DEVICE ON CACHE BOOL "" FORCE)
+#     set(TENSILELITE_ENABLE_HOST ON CACHE BOOL "" FORCE)
+#     set(HIPBLASLT_DEVICE_LIBRARY_PATH "${CMAKE_BINARY_DIR}/Tensile" CACHE PATH "" FORCE)
+#     set(HIPBLASLT_LIBLOGIC_PATH
+#         "${CMAKE_CURRENT_SOURCE_DIR}/../library/src/hcc_detail/rocsparselt/src/spmm/Tensile/Logic/asm_full"
+#         CACHE STRING "" FORCE
+#     )
+#     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.md"
+#         CACHE FILEPATH "License file for package" FORCE
+#     )
+
+#     if(WIN32)
+#         set(HIPBLASLT_TENSILE_LIBRARY_DIR "\${CPACK_PACKAGING_INSTALL_PREFIX}hipsparselt/bin"
+#             CACHE PATH "path to tensile library" FORCE
+#         )
+#     else()
+#         set(HIPBLASLT_TENSILE_LIBRARY_DIR
+#             "\${CPACK_PACKAGING_INSTALL_PREFIX}${CMAKE_INSTALL_LIBDIR}/hipsparselt"
+#             CACHE PATH "path to tensile library" FORCE
+#         )
+#     endif()
+
+#     add_subdirectory("${HIPBLASLT_PATH}" hipblaslt)
+#     endblock()
+# endif()
+
+# if(HIPBLASLT_BUNDLE_PYTHON_DEPS)
+#     set(HIPSPARSELT_PYTHON_DEPS "rocisa")
+#     set(hipsparselt_python_dev Development.Module)
+#     hipsparselt_find_python("${hipsparselt_python_dev}")
+#     hipsparselt_configure_bundled_python_command("${CMAKE_CURRENT_BINARY_DIR}/tensilelite/rocisa/lib" "${asan_opts}")
+# else()
+#     hipblaslt_find_python("${hipblaslt_python_dev}")
+#     set(HIPBLASLT_PYTHON_COMMAND "${Python_EXECUTABLE}")
+# endif()
+
 if(HIPSPARSELT_ENABLE_HIP)
-    set(HIPBLASLT_PATH "${HIPSPARSELT_HIPBLASLT_PATH}")
-    if(NOT EXISTS "${HIPBLASLT_PATH}")
-        message(
-            FATAL_ERROR
-                "hipBLASLt not found at ${HIPBLASLT_PATH}. Please ensure hipblaslt is available."
-        )
-    endif()
-
-    block(SCOPE_FOR VARIABLES)
-    set(HIPBLASLT_ENABLE_HOST OFF CACHE BOOL "" FORCE)
-    set(HIPBLASLT_ENABLE_CLIENT OFF CACHE BOOL "" FORCE)
-    set(HIPBLASLT_ENABLE_DEVICE ON CACHE BOOL "" FORCE)
-    set(TENSILELITE_ENABLE_HOST ON CACHE BOOL "" FORCE)
-    set(HIPBLASLT_DEVICE_LIBRARY_PATH "${CMAKE_BINARY_DIR}/Tensile" CACHE PATH "" FORCE)
-    set(HIPBLASLT_LIBLOGIC_PATH
+    find_package(hipblaslt REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+    set(HIPSPARSELT_PYTHON_DEPS "rocisa::rocisa")
+    set(HIPSPARSELT_PYTHON_COMMAND "${Python3_EXECUTABLE}")
+    set(HIPSPARSELT_LIBLOGIC_PATH
         "${CMAKE_CURRENT_SOURCE_DIR}/../library/src/hcc_detail/rocsparselt/src/spmm/Tensile/Logic/asm_full"
-        CACHE STRING "" FORCE
+        CACHE STRING ""
     )
-    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.md"
-        CACHE FILEPATH "License file for package" FORCE
-    )
-
     if(WIN32)
-        set(HIPBLASLT_TENSILE_LIBRARY_DIR "\${CPACK_PACKAGING_INSTALL_PREFIX}hipsparselt/bin"
-            CACHE PATH "path to tensile library" FORCE
+        set(HIPSPARSELT_TENSILELITE_LIBPATH "\${CPACK_PACKAGING_INSTALL_PREFIX}hipsparselt/bin"
+            CACHE PATH "path to tensile library"
         )
     else()
-        set(HIPBLASLT_TENSILE_LIBRARY_DIR
-            "\${CPACK_PACKAGING_INSTALL_PREFIX}${CMAKE_INSTALL_LIBDIR}/hipsparselt"
-            CACHE PATH "path to tensile library" FORCE
+        set(HIPSPARSELT_TENSILELITE_LIBPATH "\${CPACK_PACKAGING_INSTALL_PREFIX}${CMAKE_INSTALL_LIBDIR}/hipsparselt"
+            CACHE PATH "path to tensile library"
         )
     endif()
 
-    add_subdirectory("${HIPBLASLT_PATH}" hipblaslt)
-    endblock()
+    tensilelite_create_device_libraries(
+        ${HIPSPARSELT_PYTHON_COMMAND}
+        ${HIPSPARSELT_PYTHON_DEPS}
+        ${HIPSPARSELT_LIBLOGIC_PATH}
+        ${HIPSPARSELT_TENSILELITE_LIBPATH}
+        ${GPU_TARGETS}
+    )
 endif()
 
 add_subdirectory(library)

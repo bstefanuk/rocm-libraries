@@ -27,6 +27,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../../share/cmake/hi
 find_dependency(hipblas-common)
 
 include("${CMAKE_CURRENT_LIST_DIR}/hipblaslt-targets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/tensilelite_create_device_libraries.cmake")
 
 block(SCOPE_FOR VARIABLES)
     if(NOT TARGET roc::hipblaslt)

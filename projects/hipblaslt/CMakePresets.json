@@ -5,12 +5,13 @@
         "name": "opt-rocm",
         "displayName": "/opt/rocm Config",
         "description": "Sets compiler and prefix path for /opt/rocm environment",
+        "binaryDir": "${sourceDir}/build",
         "cacheVariables": {
           "CMAKE_CXX_COMPILER": "/opt/rocm/bin/amdclang++",
           "CMAKE_C_COMPILER": "/opt/rocm/bin/amdclang",
           "CMAKE_PREFIX_PATH": "/opt/rocm",
           "CMAKE_BUILD_TYPE": "Release",
-          "HIPBLASLT_ENABLE_FETCH": "ON"
+          "HIPBLASLT_ENABLE_FETCH": "OFF"
         }
       },
       {
