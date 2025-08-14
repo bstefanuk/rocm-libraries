@@ -356,11 +356,53 @@ install(
     COMPONENT devel
 )
 
-install(CODE "
-    execute_process(
-        COMMAND ${Python3_EXECUTABLE} -m pip3 install ${CMAKE_CURRENT_SOURCE_DIR}/tensilelite/
-    )
-")
+#---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 1. Locate Python and its installation directory
+# -----------------------------------------------------------------------------
+if (NOT Python3_SITEARCH)
+  message(FATAL_ERROR "Your CMake is too old or Python not found with SITEARCH.")
+endif()
+
+# -----------------------------------------------------------------------------
+# 2. Build the wheel in the build tree
+# -----------------------------------------------------------------------------
+set(_wheel_stamp          "${CMAKE_CURRENT_BINARY_DIR}/dist/tensilelite-wheel.stamp")
+set(_tensilelite_source "${CMAKE_CURRENT_SOURCE_DIR}/tensilelite")      # path to setup.py
+
+add_custom_command(
+  OUTPUT  "${_wheel_stamp}"
+  COMMAND "${Python3_EXECUTABLE}" -m pip wheel --no-deps --no-build-isolation
+          --wheel-dir "${CMAKE_CURRENT_BINARY_DIR}/dist"
+          "${_tensilelite_source}"
+  COMMAND "${CMAKE_COMMAND}" -E touch "${_wheel_stamp}"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+  COMMENT "Building Tensilelite wheel"
+)
+
+add_custom_target(tensilelite-wheel ALL DEPENDS "${_wheel_stamp}")
+
+# # -----------------------------------------------------------------------------
+# # 3. Unpack the wheel into a staging directory
+# # -----------------------------------------------------------------------------
+# set(_stage_dir "${CMAKE_BINARY_DIR}/tensile_staged")
+
+# add_custom_command(
+#   TARGET  tensilelite-wheel POST_BUILD
+#   COMMAND ${CMAKE_COMMAND} -E rm -rf "${_stage_dir}"
+#   COMMAND "${Python3_EXECUTABLE}" -m pip install --no-deps --target "${_stage_dir}" "${_wheel}"
+#   COMMENT "Staging Tensile into ${_stage_dir}"
+# )
+
+# -----------------------------------------------------------------------------
+# 4. Install into the real site-packages dir and record in manifest
+# -----------------------------------------------------------------------------
+install(
+  DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/dist"
+  DESTINATION "${Python3_SITEARCH}"
+  COMPONENT devel 
+)
+#---------------------------------------------------------------------------
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
