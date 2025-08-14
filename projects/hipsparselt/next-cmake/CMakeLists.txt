@@ -173,7 +173,7 @@ endif()
 if(HIPSPARSELT_ENABLE_HIP)
     find_package(hipblaslt REQUIRED)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
-    set(HIPSPARSELT_PYTHON_DEPS "rocisa::rocisa")
+    set(HIPSPARSELT_PYTHON_DEPS "roc::tensilelite-host")
     set(HIPSPARSELT_PYTHON_COMMAND "${Python3_EXECUTABLE}")
     set(HIPSPARSELT_LIBLOGIC_PATH
         "${CMAKE_CURRENT_SOURCE_DIR}/../library/src/hcc_detail/rocsparselt/src/spmm/Tensile/Logic/asm_full"

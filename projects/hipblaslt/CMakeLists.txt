@@ -299,20 +299,13 @@ if(HIPBLASLT_ENABLE_HOST)
         COMPONENT devel
     )
 
-    rocm_install_targets(TARGETS hipblaslt)
+    rocm_install_targets(TARGETS hipblaslt tensilelite-host)
 
     rocm_export_targets(
-        TARGETS roc::hipblaslt
+        TARGETS roc::hipblaslt tensilelite::tensilelite-host
         DEPENDS PACKAGE hip
         DEPENDS PACKAGE ${hipblas_target}
         NAMESPACE roc::
-    )
-
-    rocm_install_targets(TARGETS tensilelite-host)
-
-    rocm_export_targets(
-        TARGETS tensilelite::tensilelite-host
-        NAMESPACE tensilelite::
     )
 
     configure_file(
@@ -351,10 +344,23 @@ if(HIPBLASLT_ENABLE_DEVICE)
     )
 endif()
 
-rocm_install(
+install(
     FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/tensilelite_create_device_libraries.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hipblaslt
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/hipblaslt"
+    COMPONENT devel
 )
+
+install(
+    TARGETS rocisa
+    LIBRARY DESTINATION ${Python_SITEARCH}
+    COMPONENT devel
+)
+
+install(CODE "
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -m pip3 install ${CMAKE_CURRENT_SOURCE_DIR}/tensilelite/
+    )
+")
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
