@@ -79,19 +79,19 @@ if(NOT BUILD_CUDA)
 
   if( BUILD_WITH_TENSILE )
     if( BUILD_SHARED_LIBS )
-      target_link_libraries( hipsparselt PRIVATE TensileHost )
+      target_link_libraries( hipsparselt PRIVATE tensilelite::tensilelite-host )
     else()
       target_compile_definitions( hipsparselt PRIVATE HIPSPARSELT_STATIC_LIB )
 
       # bypassing cmake dependencies chain for static link as it won't allow target from different directory
 
       # including tensile headers into rocblas tensileHost client so get compile properties
-      get_target_property(TensileHost_INCLUDES TensileHost INCLUDE_DIRECTORIES)
+      get_target_property(TensileHost_INCLUDES tensilelite::tensilelite-host INCLUDE_DIRECTORIES)
       target_include_directories( hipsparselt PRIVATE ${TensileHost_INCLUDES} )
-      get_target_property(TensileHost_DEFINES TensileHost COMPILE_DEFINITIONS)
+      get_target_property(TensileHost_DEFINES tensilelite::tensilelite-host COMPILE_DEFINITIONS)
       target_compile_definitions( hipsparselt PRIVATE ${TensileHost_DEFINES} )
 
-      get_target_property( TensileHost_LIBDIR TensileHost BINARY_DIR )
+      get_target_property( TensileHost_LIBDIR tensilelite::tensilelite-host BINARY_DIR )
 
       message (STATUS "TensileHost_INCLUDES == ${TensileHost_INCLUDES}")
       message (STATUS "TensileHost_DEFINES == ${TensileHost_DEFINES}")
@@ -117,7 +117,7 @@ if(NOT BUILD_CUDA)
 
       # to get TensileHost built first, not to link target
       # as dependency chain can not be created
-      add_dependencies(hipsparselt TensileHost)
+      add_dependencies(hipsparselt tensilelite::tensilelite-host)
     endif()
     target_compile_definitions(hipsparselt PRIVATE ${TENSILE_DEFINES} )
   endif()

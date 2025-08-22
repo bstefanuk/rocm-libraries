@@ -48,6 +48,11 @@ option(TENSILELITE_BUILD_TESTING "Build client when building tests" OFF)
 option(TENSILELITE_ENABLE_CLIENT "Build tensilelite client" ${TENSILELITE_BUILD_TESTING})
 option(TENSILELITE_ENABLE_AUTOBUILD "Generate scripts for wrapping tensile python scripts" OFF)
 
+if(HIPBLASLT_ENABLE_DEVICE)
+    option(HIPBLASLT_ENABLE_EXTOPS "Build hipBLASLt extops." ON)
+    option(HIPBLASLT_ENABLE_MATRIX_TRANSFORM "Build hipBLASLt matrix transform." ON)
+endif()
+
 if(HIPBLASLT_ENABLE_CLIENT)
     option(HIPBLASLT_BUILD_TESTING "Build hipblaslt client tests." ON)
     option(HIPBLASLT_ENABLE_SAMPLES "Build client samples." ON)
