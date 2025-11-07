@@ -179,6 +179,13 @@ if(HIPSPARSELT_ENABLE_CLIENT)
     add_subdirectory(clients)
 endif()
 
+if(HIPSPARSELT_IGNORE_WARNINGS)
+    add_compile_options(
+        -Wno-deprecated-declarations
+        -Wno-explicit-specialization-storage-class
+    )
+endif()
+
 # --- Packaging and installation ---
 
 if(HIPSPARSELT_ENABLE_CLIENT)
