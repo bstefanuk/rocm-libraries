@@ -1,0 +1,39 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Release Build",
+      "description": "Configure rocSPARSE for release with default settings",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "/opt/rocm/bin/amdclang++",
+        "CMAKE_C_COMPILER": "/opt/rocm/bin/amdclang",
+        "CMAKE_PREFIX_PATH": "/opt/rocm",
+        "ROCSPARSE_BUILD_SHARED_LIBS": "ON"
+      },
+      "environment": {
+        "ROCM_PATH": "/opt/rocm"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug Build with Clients",
+      "description": "Configure rocSPARSE for debug with all clients enabled",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ROCSPARSE_BUILD_TESTING": "ON",
+        "ROCSPARSE_ENABLE_BENCHMARKS": "ON",
+        "ROCSPARSE_ENABLE_SAMPLES": "ON"
+      }
+    }
+  ]
+}
+
