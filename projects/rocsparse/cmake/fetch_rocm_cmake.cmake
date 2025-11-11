@@ -1,7 +1,7 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-# Dependencies
+# Fetch and configure ROCm CMake build tools
 
 include(FetchContent)
 
@@ -37,3 +37,4 @@ include(ROCMInstallSymlinks)
 include(ROCMCheckTargetIds)
 include(ROCMClients)
 include(ROCMHeaderWrapper)
+

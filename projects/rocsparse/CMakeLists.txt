@@ -12,8 +12,8 @@ include(rocsparse_shim)
 # Set cpack license file to avoid rocm-cmake warning
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 
-# Dependencies (loads ROCm CMake modules)
-include(Dependencies)
+# Fetch and configure ROCm CMake build tools
+include(fetch_rocm_cmake)
 
 # CMake policies
 if(POLICY CMP0066)
@@ -160,7 +160,9 @@ if(AMDGPU_TARGETS AND NOT GPU_TARGETS)
     message(DEPRECATION "AMDGPU_TARGETS use is deprecated. Use GPU_TARGETS instead.")
     set(GPU_TARGETS ${AMDGPU_TARGETS} CACHE STRING "GPU architectures to build for")
 elseif(NOT GPU_TARGETS)
-    set(GPU_TARGETS ${DEFAULT_GPU_TARGETS} CACHE STRING "GPU architectures to build for")
+    # For backward compatibility, don't set default GPU targets when not specified
+    # This matches the old behavior where GPU_BUILD_TARGETS was empty
+    set(GPU_TARGETS "" CACHE STRING "GPU architectures to build for")
 endif()
 
 # Handle "all" keyword
@@ -291,6 +293,8 @@ rocm_export_targets(
     DEPENDS
     PACKAGE hip
     PACKAGE rocprim
+    COMPATIBILITY SameMajorVersion
+    CONFIG_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/rocsparse-config.cmake.in"
 )
 
 # --- Packaging ---
@@ -355,6 +359,9 @@ if(ROCSPARSE_ENABLE_CLIENT)
     endif()
 endif()
 
+# Set up runtime component
+rocm_package_setup_component(runtime)
+
 # HIP runtime dependencies
 set(HIP_RUNTIME_MINIMUM "4.5.0")
 if(ROCSPARSE_ENABLE_ASAN)
@@ -363,17 +370,21 @@ else()
     set(DEPENDS_HIP_RUNTIME "hip-runtime-amd")
 endif()
 
-rocm_package_add_dependencies(SHARED_DEPENDS "${DEPENDS_HIP_RUNTIME} >= ${HIP_RUNTIME_MINIMUM}")
-rocm_package_add_deb_dependencies(STATIC_DEPENDS "hip-static-dev >= ${HIP_RUNTIME_MINIMUM}")
-rocm_package_add_rpm_dependencies(STATIC_DEPENDS "hip-static-devel >= ${HIP_RUNTIME_MINIMUM}")
+# Add runtime dependencies
+rocm_package_add_dependencies(DEPENDS "${DEPENDS_HIP_RUNTIME} >= ${HIP_RUNTIME_MINIMUM}" COMPONENT runtime)
 
 # rocBLAS dependency
 if(rocblas_FOUND)
     set(ROCBLAS_MINIMUM "4.1.0")
-    rocm_package_add_dependencies(SHARED_DEPENDS "rocblas >= ${ROCBLAS_MINIMUM}")
-    rocm_package_add_deb_dependencies(STATIC_DEPENDS "rocblas-static-dev >= ${ROCBLAS_MINIMUM}")
-    rocm_package_add_rpm_dependencies(STATIC_DEPENDS "rocblas-static-devel >= ${ROCBLAS_MINIMUM}")
+    rocm_package_add_dependencies(DEPENDS "rocblas >= ${ROCBLAS_MINIMUM}" COMPONENT runtime)
 endif()
+
+# Add rocm-core dependency
+rocm_package_add_dependencies(DEPENDS "rocm-core" COMPONENT runtime)
+
+# Development package depends on runtime package
+rocm_package_add_deb_dependencies(DEPENDS "rocsparse (>= ${rocsparse_VERSION})" COMPONENT devel)
+rocm_package_add_rpm_dependencies(DEPENDS "rocsparse >= ${rocsparse_VERSION}" COMPONENT devel)
 
 # CPack configuration
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
