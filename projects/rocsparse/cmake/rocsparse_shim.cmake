@@ -183,6 +183,16 @@ if(DEFINED BUILD_WITH_OFFLOAD_COMPRESS)
     endif()
 endif()
 
+# AMDGPU_TARGETS → GPU_TARGETS
+if(DEFINED AMDGPU_TARGETS)
+    _rocsparse_check_conflict(AMDGPU_TARGETS GPU_TARGETS)
+    if(NOT DEFINED GPU_TARGETS)
+        set(GPU_TARGETS ${AMDGPU_TARGETS} CACHE STRING 
+            "AMD GFX targets to cross-compile" FORCE)
+        _rocsparse_deprecation_warning(AMDGPU_TARGETS GPU_TARGETS)
+    endif()
+endif()
+
 # Cleanup: Unset old variables to prevent accidental usage downstream
 # This ensures the modern names are authoritative
 unset(BUILD_SHARED_LIBS CACHE)
@@ -201,4 +211,5 @@ unset(BUILD_WITH_ROCTX CACHE)
 unset(BUILD_FORTRAN_CLIENTS CACHE)
 unset(BUILD_DOCS CACHE)
 unset(BUILD_WITH_OFFLOAD_COMPRESS CACHE)
+unset(AMDGPU_TARGETS CACHE)
 

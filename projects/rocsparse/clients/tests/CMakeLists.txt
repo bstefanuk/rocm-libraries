@@ -4,7 +4,6 @@
 find_package(GTest 1.11.0 REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-# Client matrices setup
 if(NOT EXISTS "${CMAKE_MATRICES_DIR}")
     set(CMAKE_MATRICES_DIR ${PROJECT_BINARY_DIR}/matrices CACHE STRING "Matrices directory")
     file(MAKE_DIRECTORY ${CMAKE_MATRICES_DIR})
@@ -12,7 +11,6 @@ if(NOT EXISTS "${CMAKE_MATRICES_DIR}")
     set(CONVERT_SOURCE ${PROJECT_SOURCE_DIR}/deps/convert.cpp CACHE STRING "Convert tool mtx2csr")
     include(${PROJECT_SOURCE_DIR}/cmake/ClientMatrices.cmake)
 else()
-    # Copy existing matrices
     if(NOT CMAKE_MATRICES_DIR STREQUAL "${PROJECT_BINARY_DIR}/matrices")
         message(STATUS "Copying matrix files from ${CMAKE_MATRICES_DIR} to ${PROJECT_BINARY_DIR}/matrices")
         execute_process(
@@ -25,9 +23,8 @@ else()
     endif()
 endif()
 
-# Define test executable
 add_executable(rocsparse-test
-    rocsparse_test_main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/rocsparse_test_main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpby.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpyi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_doti.cpp
@@ -173,150 +170,6 @@ add_executable(rocsparse-test
     ${CMAKE_CURRENT_SOURCE_DIR}/test_check_spmat.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_bsrpad_value.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rocsparse_test_listeners.cpp
-    # Testing implementations
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_axpby.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_axpyi.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_doti.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dotci.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gather.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_scatter.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gthr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gthrz.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_rot.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_roti.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sctr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrmv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrxmv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrsv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_coomv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrmv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrmv_managed.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrsv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csritsv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_ellmv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_hybmv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gebsrmv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrmm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gebsrmm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrmm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrsm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrsm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gemmi.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrgeam.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrgemm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrgeam.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrgemm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrgemm_reuse.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsric0.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrilu0.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csric0.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrilu0.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csritilu0.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csritilu0_ex.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gtsv_no_pivot.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gtsv_no_pivot_strided_batch.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gtsv_interleaved_batch.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gpsv_interleaved_batch.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gebsr2gebsc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gebsr2gebsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2ell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2hyb.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2bsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2gebsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_coo2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_ell2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_hyb2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsr2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gebsr2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2csr_compress.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_prune_csr2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_prune_csr2csr_by_percentage.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_identity.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_inverse_permutation.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrsort.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_cscsort.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_coosort.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csricsv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrilusv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_nnz.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dense2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dense2coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_prune_dense2csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_prune_dense2csr_by_percentage.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dense2csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csr2dense.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csc2dense.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_coo2dense.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spvec_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmat_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dnvec_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dnmat_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_const_spvec_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_const_spmat_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_const_dnvec_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_const_dnmat_descr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmv_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmv_coo_aos.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmv_bsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmv_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmv_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmv_ell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_coo_aos.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_bsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_ell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_v2_spmv_sell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spsv_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sptrsv_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spitsv_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spsv_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sptrsm_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sptrsm_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spsm_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spsm_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_bsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_bell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_batched_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_batched_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_batched_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spmm_batched_bell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spvv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sparse_to_dense_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sparse_to_dense_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sparse_to_dense_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dense_to_sparse_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dense_to_sparse_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_dense_to_sparse_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sparse_to_sparse.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_extract.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgemm_bsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgemm_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgemm_reuse_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgeam_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgeam_reuse_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgeam_csr_2.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_spgeam_reuse_csr_2.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gtsv.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_gemvi.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_sddmm.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_csrcolor.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_copy_info.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_csr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_coo.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_gebsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_gebsc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_csc.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_ell.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_matrix_hyb.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_check_spmat.cpp
-    ${PROJECT_SOURCE_DIR}/clients/testings/testing_bsrpad_value.cpp
     # Common utilities
     ${PROJECT_SOURCE_DIR}/clients/common/utility.cpp
     ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_random.cpp
@@ -357,7 +210,9 @@ add_executable(rocsparse-test
     ${PROJECT_SOURCE_DIR}/clients/common/rocsparseio.cpp
 )
 
-# Target compile definitions
+# Add testing implementation sources from testings subdirectory
+add_subdirectory(${PROJECT_SOURCE_DIR}/clients/testings ${CMAKE_CURRENT_BINARY_DIR}/testings)
+
 target_compile_definitions(rocsparse-test PRIVATE GOOGLE_TEST)
 
 if(ROCSPARSE_ENABLE_MEMSTAT)
@@ -368,7 +223,6 @@ if(ROCSPARSE_ENABLE_ILP64)
     target_compile_definitions(rocsparse-test PRIVATE rocsparse_ILP64)
 endif()
 
-# Target compile options
 target_compile_options(rocsparse-test PRIVATE
     -ffp-contract=on
     -mfma
@@ -377,10 +231,8 @@ target_compile_options(rocsparse-test PRIVATE
     -Wall
 )
 
-# Target compile features
 target_compile_features(rocsparse-test PRIVATE cxx_std_17)
 
-# Include directories
 target_include_directories(rocsparse-test PRIVATE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/clients/include>
 )
@@ -404,7 +256,6 @@ if(NOT WIN32 AND OPENMP_FOUND)
     endif()
 endif()
 
-# Link libraries
 target_link_libraries(rocsparse-test PRIVATE
     roc::rocsparse
     GTest::gtest
@@ -412,7 +263,6 @@ target_link_libraries(rocsparse-test PRIVATE
     hip::device
 )
 
-# Link OpenMP if found
 if(OPENMP_FOUND)
     if(TARGET OpenMP::omp)
         target_link_libraries(rocsparse-test PRIVATE OpenMP::omp)
@@ -421,7 +271,6 @@ if(OPENMP_FOUND)
     endif()
 endif()
 
-# rocTX support
 if(NOT WIN32 AND ROCSPARSE_ENABLE_MARKER)
     if(ROCTRACER_INCLUDE_DIR AND ROCTX_LIBRARY)
         target_include_directories(rocsparse-test PRIVATE ${ROCTRACER_INCLUDE_DIR})
@@ -452,7 +301,6 @@ add_custom_command(
 add_custom_target(rocsparse-test-data DEPENDS "${ROCSPARSE_TEST_DATA}")
 add_dependencies(rocsparse-test rocsparse-test-data rocsparse-common)
 
-# Install test executable and data
 rocm_install(TARGETS rocsparse-test COMPONENT tests DESTINATION "${CMAKE_INSTALL_BINDIR}")
 rocm_install(FILES ${ROCSPARSE_TEST_DATA} DESTINATION "${CMAKE_INSTALL_DATADIR}/rocsparse/test" COMPONENT tests)
 

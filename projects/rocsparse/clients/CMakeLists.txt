@@ -1,9 +1,6 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-# Note: Clients are NOT a separate project - they are part of rocsparse
-# No project() call, no find_package() for parent library
-
 # Fortran module handling
 if(ROCSPARSE_ENABLE_FORTRAN)
     # Set Fortran module output directory

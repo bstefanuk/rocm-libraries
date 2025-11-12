@@ -1,7 +1,6 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-# Function to add rocsparse C++ examples
 function(add_rocsparse_example EXAMPLE_SOURCE)
     get_filename_component(EXAMPLE_TARGET ${EXAMPLE_SOURCE} NAME_WE)
     add_executable(${EXAMPLE_TARGET} ${EXAMPLE_SOURCE})
@@ -129,7 +128,7 @@ if(ROCSPARSE_ENABLE_FORTRAN AND NOT WIN32)
     add_rocsparse_fortran_example(example_fortran_roti.f90)
 endif()
 
-# Build documentation examples
+# Documentation examples
 file(GLOB_RECURSE DOCUMENTATION_EXAMPLES documentation_examples/*.cpp)
 foreach(file ${DOCUMENTATION_EXAMPLES})
     add_rocsparse_example(${file})

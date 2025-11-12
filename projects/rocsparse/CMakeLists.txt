@@ -3,19 +3,16 @@
 
 cmake_minimum_required(VERSION 3.25.2)
 
-# Set up module path before loading shim
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile_commands.json for clang tooling")
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Load backward compatibility shim BEFORE project() and option() calls
+# Load backward compatibility shim BEFORE project() to retain behaviour in included files.
 include(rocsparse_shim)
 
-# Set cpack license file to avoid rocm-cmake warning
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
+# Do not set VERSION here, it is managed by rocm_setup_version
+project(rocsparse LANGUAGES CXX C)
 
-# Fetch and configure ROCm CMake build tools
-include(fetch_rocm_cmake)
-
-# CMake policies
 if(POLICY CMP0066)
     cmake_policy(SET CMP0066 NEW) # Honor per-config flags in try_compile()
 endif()
@@ -28,21 +25,21 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW) # FetchContent timestamp handling
 endif()
 
-# Project declaration - VERSION managed by rocm_setup_version
-project(rocsparse LANGUAGES CXX C)
+# Set cpack license file to avoid rocm-cmake warning
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 
+include(fetch_rocm_cmake)
+include(rocsparse_supported_architectures.cmake)
 include(CMakeDependentOption)
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
-# Version setup
 set(VERSION_STRING "4.2.0")
 set(SOVERSION_STRING "1.0")
 rocm_setup_version(VERSION ${VERSION_STRING})
 set(rocsparse_SOVERSION ${SOVERSION_STRING})
 
-# Install prefix handling
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     if(WIN32)
         set(CMAKE_INSTALL_PREFIX "C:/hipSDK" CACHE PATH "Install path prefix" FORCE)
@@ -50,9 +47,6 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
         set(CMAKE_INSTALL_PREFIX "/opt/rocm" CACHE PATH "Install path prefix" FORCE)
     endif()
 endif()
-
-# Export compile commands for tooling
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile_commands.json for clang tooling")
 
 # --- Build Options ---
 
@@ -72,19 +66,16 @@ option(ROCSPARSE_ENABLE_ROCBLAS "Enable building rocSPARSE with rocBLAS" ON)
 option(ROCSPARSE_ENABLE_MARKER "Enable rocTracer marker support" ON)
 option(ROCSPARSE_ENABLE_OFFLOAD_COMPRESS "Enable offload compression during compilation" ON)
 
-# Fortran clients option
 if(NOT ROCSPARSE_ENABLE_FORTRAN)
     option(ROCSPARSE_ENABLE_FORTRAN "Build rocSPARSE clients requiring Fortran capabilities" ON)
 endif()
 
-# Client umbrella flag
 if(ROCSPARSE_ENABLE_SAMPLES OR ROCSPARSE_BUILD_TESTING OR ROCSPARSE_ENABLE_BENCHMARKS)
     set(ROCSPARSE_ENABLE_CLIENT ON)
 else()
     set(ROCSPARSE_ENABLE_CLIENT OFF)
 endif()
 
-# Validate options
 if(ROCSPARSE_ENABLE_ASAN AND ROCSPARSE_ENABLE_FORTRAN)
     message(FATAL_ERROR "Cannot enable both address sanitizer and Fortran clients")
 endif()
@@ -93,20 +84,14 @@ if(ROCSPARSE_BUILD_COVERAGE AND ROCSPARSE_ENABLE_FORTRAN)
     message(FATAL_ERROR "Cannot enable both code coverage and Fortran clients")
 endif()
 
-if(ROCSPARSE_BUILD_COVERAGE)
-    if(NOT CMAKE_CONFIGURATION_TYPES) # Single-config generator
-        if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-            message(FATAL_ERROR "Code coverage is only supported for CMAKE_BUILD_TYPE=Debug")
-        endif()
-    endif()
+if(ROCSPARSE_BUILD_COVERAGE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(FATAL_ERROR "Code coverage is only supported for CMAKE_BUILD_TYPE=Debug")
 endif()
 
-# Validate compiler
 if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    message(FATAL_ERROR "'hip-clang' or 'amdclang' compiler required to compile for ROCm platform")
+    message(FATAL_ERROR "'hipcc' or 'amdclang' compiler required to compile for ROCm platform")
 endif()
 
-# Check offload compress support if enabled
 if(ROCSPARSE_ENABLE_OFFLOAD_COMPRESS)
     check_cxx_compiler_flag("--offload-compress" CXX_COMPILER_SUPPORTS_OFFLOAD_COMPRESS)
     if(NOT CXX_COMPILER_SUPPORTS_OFFLOAD_COMPRESS)
@@ -117,91 +102,44 @@ if(ROCSPARSE_ENABLE_OFFLOAD_COMPRESS)
     endif()
 endif()
 
-# Enable Fortran language if needed
 if(ROCSPARSE_ENABLE_FORTRAN)
     enable_language(Fortran)
 endif()
 
-# --- GPU Targets Configuration ---
+set(GPU_TARGETS "all" CACHE STRING "AMD GFX targets to cross-compile")
 
-# Detect compiler support for target ID
-if(CMAKE_CXX_COMPILER MATCHES ".*/hipcc$" OR CMAKE_CXX_COMPILER MATCHES ".*clang\\+\\+")
-    execute_process(
-        COMMAND ${CMAKE_CXX_COMPILER} "--help"
-        OUTPUT_VARIABLE CXX_OUTPUT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_STRIP_TRAILING_WHITESPACE
-    )
-    string(REGEX MATCH ".mcode\-object\-version" TARGET_ID_SUPPORT ${CXX_OUTPUT})
-endif()
-
-# Set GPU targets with backward compatibility
-if(COMMAND rocm_check_target_ids)
-    if(ROCSPARSE_ENABLE_ASAN)
-        rocm_check_target_ids(DEFAULT_GPU_TARGETS
-            TARGETS "gfx908:xnack+;gfx90a:xnack+;gfx942:xnack+"
-        )
-    else()
-        rocm_check_target_ids(DEFAULT_GPU_TARGETS
-            TARGETS "gfx803;gfx900:xnack-;gfx906:xnack-;gfx908:xnack-;gfx90a:xnack-;gfx90a:xnack+;gfx942;gfx950;gfx1030;gfx1100;gfx1101;gfx1102;gfx1151;gfx1200;gfx1201"
-        )
-    endif()
+if(NOT GPU_TARGETS)
+    message(FATAL_ERROR "No GPU targets specified.")
+elseif(GPU_TARGETS STREQUAL "all")
+    rocsparse_get_base_architectures(GPU_TARGETS)
 else()
-    # Use target ID syntax if supported
-    if(TARGET_ID_SUPPORT)
-        set(DEFAULT_GPU_TARGETS "gfx803;gfx900:xnack-;gfx906:xnack-;gfx908:xnack-;gfx1030;gfx1100;gfx1101;gfx1102;gfx1151;gfx1200;gfx1201")
-    else()
-        set(DEFAULT_GPU_TARGETS "gfx803;gfx900;gfx906;gfx908")
-    endif()
+    rocsparse_validate_gpu_targets("${GPU_TARGETS}")
 endif()
 
-# Support AMDGPU_TARGETS as deprecated
-if(AMDGPU_TARGETS AND NOT GPU_TARGETS)
-    message(DEPRECATION "AMDGPU_TARGETS use is deprecated. Use GPU_TARGETS instead.")
-    set(GPU_TARGETS ${AMDGPU_TARGETS} CACHE STRING "GPU architectures to build for")
-elseif(NOT GPU_TARGETS)
-    # For backward compatibility, don't set default GPU targets when not specified
-    # This matches the old behavior where GPU_BUILD_TARGETS was empty
-    set(GPU_TARGETS "" CACHE STRING "GPU architectures to build for")
-endif()
+message(STATUS "Building for GPU targets: ${GPU_TARGETS}")
 
-# Handle "all" keyword
-if(GPU_TARGETS STREQUAL "all")
-    set(GPU_TARGETS "${DEFAULT_GPU_TARGETS}" CACHE STRING "GPU architectures to build for" FORCE)
-endif()
+# --- Dependency Setup ---
 
-message(STATUS "GPU_TARGETS: ${GPU_TARGETS}")
-
-# --- Find Dependencies ---
-
-set(MIN_ROCPRIM_VERSION "4.0.0" CACHE STRING "Minimum version of rocPRIM")
-set(MIN_ROCBLAS_VERSION "4.1.0" CACHE STRING "Minimum version of rocBLAS")
-
-# Find HIP
 find_package(hip REQUIRED CONFIG PATHS ${HIP_DIR} ${ROCM_PATH} /opt/rocm)
 
-# Find rocPRIM
+set(ROCSPARSE_MIN_ROCPRIM_VERSION "4.0.0" CACHE STRING "Minimum version of rocPRIM")
 find_package(rocprim REQUIRED)
-if(rocprim_VERSION VERSION_LESS MIN_ROCPRIM_VERSION)
+if(rocprim_VERSION VERSION_LESS ROCSPARSE_MIN_ROCPRIM_VERSION)
     message(FATAL_ERROR
-        "Incompatible rocPRIM version. Found: ${rocprim_VERSION}, Required: ${MIN_ROCPRIM_VERSION}"
+        "Incompatible rocPRIM version. Found: ${rocprim_VERSION}, Required: ${ROCSPARSE_MIN_ROCPRIM_VERSION}"
     )
 endif()
 
-# Find rocBLAS (optional)
+set(ROCSPARSE_MIN_ROCBLAS_VERSION "4.1.0" CACHE STRING "Minimum version of rocBLAS")
 if(ROCSPARSE_ENABLE_ROCBLAS)
     find_package(rocblas REQUIRED)
-    if(rocblas_VERSION VERSION_LESS MIN_ROCBLAS_VERSION)
+    if(rocblas_VERSION VERSION_LESS ROCSPARSE_MIN_ROCBLAS_VERSION)
         message(FATAL_ERROR
-            "Incompatible rocBLAS version. Found: ${rocblas_VERSION}, Required: ${MIN_ROCBLAS_VERSION}"
+            "Incompatible rocBLAS version. Found: ${rocblas_VERSION}, Required: ${ROCSPARSE_MIN_ROCBLAS_VERSION}"
         )
     endif()
-    message(STATUS "rocSPARSE will be built with rocBLAS support")
-else()
-    message(STATUS "rocSPARSE will be built WITHOUT rocBLAS support")
 endif()
 
-# Find OpenMP for clients
 if(ROCSPARSE_ENABLE_CLIENT)
     find_package(OpenMP QUIET)
     if(NOT OPENMP_FOUND)
@@ -209,25 +147,18 @@ if(ROCSPARSE_ENABLE_CLIENT)
     endif()
 endif()
 
-# --- Define Main Library Target ---
-
-# Library type respects ROCSPARSE_BUILD_SHARED_LIBS
 if(ROCSPARSE_BUILD_SHARED_LIBS)
     add_library(rocsparse SHARED "")
 else()
     add_library(rocsparse STATIC "")
 endif()
 
-# Namespaced alias for export
 add_library(roc::rocsparse ALIAS rocsparse)
 
-# Target will be populated in library/ subdirectory
 add_subdirectory(library)
 
-# Apply target properties
 target_compile_features(rocsparse PRIVATE cxx_std_17)
 
-# Compressed debug symbols
 if(ROCSPARSE_ENABLE_COMPRESSED_DBG)
     target_compile_options(rocsparse PRIVATE
         $<$<CONFIG:Debug>:-gz>
@@ -235,41 +166,68 @@ if(ROCSPARSE_ENABLE_COMPRESSED_DBG)
     )
 endif()
 
-# Offload compression
 if(ROCSPARSE_ENABLE_OFFLOAD_COMPRESS)
     target_compile_options(rocsparse PRIVATE --offload-compress)
 endif()
 
-# Code coverage
 if(ROCSPARSE_BUILD_COVERAGE)
     target_compile_options(rocsparse PRIVATE -fprofile-arcs -ftest-coverage)
     target_link_options(rocsparse PRIVATE --coverage -lgcov)
 endif()
 
-# Address sanitizer
 if(ROCSPARSE_ENABLE_ASAN)
     target_compile_options(rocsparse PRIVATE -fsanitize=address -shared-libasan)
     target_link_options(rocsparse PRIVATE -fsanitize=address -shared-libasan -fuse-ld=lld)
 endif()
 
-# Set SOVERSION
 rocm_set_soversion(rocsparse ${rocsparse_SOVERSION})
-
-# --- Build Clients ---
 
 if(ROCSPARSE_ENABLE_CLIENT)
     add_subdirectory(clients)
 endif()
 
-# --- Build Documentation ---
-
 if(ROCSPARSE_BUILD_DOCS)
     add_subdirectory(docs)
 endif()
 
-# --- Installation and Export ---
+# --- Packaging and installation ---
 
-# Install library
+if(ROCSPARSE_ENABLE_CLIENT)
+    include(rocm_client_packages.cmake)
+    rocm_package_setup_component(clients)
+    rocm_package_setup_client_component(clients-common)
+endif()
+
+if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
+    rocm_package_setup_client_component(tests DEPENDS COMPONENT clients-common)
+endif()
+
+if(ROCSPARSE_ENABLE_BENCHMARKS)
+    rocm_package_setup_client_component(benchmarks DEPENDS COMPONENT clients-common)
+endif()
+
+if(ROCSPARSE_ENABLE_SAMPLES)
+    rocm_package_setup_client_component(samples)
+endif()
+
+if(ROCSPARSE_ENABLE_FORTRAN)
+    rocm_package_add_rpm_dependencies(COMPONENT tests DEPENDS "${GFORTRAN_RPM}")
+    rocm_package_add_deb_dependencies(COMPONENT tests DEPENDS "${GFORTRAN_DEB}")
+    rocm_package_add_rpm_dependencies(COMPONENT benchmarks DEPENDS "${GFORTRAN_RPM}")
+    rocm_package_add_deb_dependencies(COMPONENT benchmarks DEPENDS "${GFORTRAN_DEB}")
+endif()
+
+# Work around code object stripping failure if using /usr/bin/strip
+find_program(LLVM_STRIP NAMES llvm-strip PATH_SUFFIXES lib/llvm/bin llvm/bin bin)
+if(LLVM_STRIP)
+    set(CPACK_RPM_SPEC_MORE_DEFINE "%define __strip ${LLVM_STRIP}")
+else()
+    message(
+        WARNING
+            "llvm-strip not found, using default strip tool. This may cause stripping to fail during packaging."
+    )
+endif()
+
 rocm_install(
     TARGETS rocsparse
     EXPORT rocsparse-targets
@@ -278,14 +236,12 @@ rocm_install(
     RUNTIME COMPONENT "runtime"
 )
 
-# Install headers
 rocm_install(
     DIRECTORY "${PROJECT_BINARY_DIR}/include/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     COMPONENT "devel"
 )
 
-# Export targets
 rocm_export_targets(
     NAMESPACE roc::
     TARGETS rocsparse
@@ -297,67 +253,6 @@ rocm_export_targets(
     CONFIG_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/rocsparse-config.cmake.in"
 )
 
-# --- Packaging ---
-
-if(ROCSPARSE_ENABLE_CLIENT)
-    if(NOT CLIENTS_OS)
-        rocm_set_os_id(CLIENTS_OS)
-        string(TOLOWER "${CLIENTS_OS}" CLIENTS_OS)
-        rocm_read_os_release(CLIENTS_OS_VERSION VERSION_ID)
-    endif()
-    message(STATUS "Client OS: ${CLIENTS_OS} ${CLIENTS_OS_VERSION}")
-
-    # Set package dependencies
-    if(OPENMP_FOUND)
-        set(OPENMP_RPM "libgomp")
-        set(OPENMP_DEB "libomp-dev")
-    endif()
-
-    set(GFORTRAN_RPM "libgfortran4")
-    set(GFORTRAN_DEB "libgfortran4")
-
-    if(CLIENTS_OS STREQUAL "centos" OR CLIENTS_OS STREQUAL "rhel" OR CLIENTS_OS STREQUAL "almalinux")
-        if(CLIENTS_OS_VERSION VERSION_GREATER_EQUAL "8")
-            set(GFORTRAN_RPM "libgfortran")
-        endif()
-    elseif(CLIENTS_OS STREQUAL "ubuntu" AND CLIENTS_OS_VERSION VERSION_GREATER_EQUAL "20.04")
-        set(GFORTRAN_DEB "libgfortran5")
-    elseif(CLIENTS_OS STREQUAL "sles" AND OPENMP_FOUND)
-        set(OPENMP_RPM "libgomp1")
-    elseif(CLIENTS_OS STREQUAL "mariner" OR CLIENTS_OS STREQUAL "azurelinux")
-        set(GFORTRAN_RPM "gfortran")
-    endif()
-
-    rocm_package_setup_component(clients)
-    rocm_package_setup_client_component(clients-common)
-
-    if(ROCSPARSE_BUILD_TESTING)
-        rocm_package_setup_client_component(
-            tests
-            DEPENDS
-            COMPONENT clients-common
-            DEB "${OPENMP_DEB}"
-            RPM "${OPENMP_RPM}"
-        )
-    endif()
-
-    if(ROCSPARSE_ENABLE_BENCHMARKS)
-        rocm_package_setup_client_component(
-            benchmarks
-            DEPENDS
-            COMPONENT clients-common
-            DEB "${OPENMP_DEB}"
-            RPM "${OPENMP_RPM}"
-        )
-    endif()
-
-    if(ROCSPARSE_ENABLE_FORTRAN)
-        rocm_package_add_rpm_dependencies(COMPONENT tests DEPENDS "${GFORTRAN_RPM}")
-        rocm_package_add_deb_dependencies(COMPONENT tests DEPENDS "${GFORTRAN_DEB}")
-        rocm_package_add_rpm_dependencies(COMPONENT benchmarks DEPENDS "${GFORTRAN_RPM}")
-        rocm_package_add_deb_dependencies(COMPONENT benchmarks DEPENDS "${GFORTRAN_DEB}")
-    endif()
-endif()
 
 # Set up runtime component
 rocm_package_setup_component(runtime)
@@ -416,7 +311,7 @@ rocm_create_package(
     LDCONFIG_DIR ${ROCSPARSE_CONFIG_DIR}
 )
 
-# --- Code Coverage Targets ---
+# --- Coverage setup ---
 
 if(ROCSPARSE_BUILD_COVERAGE)
     # Coverage analysis target

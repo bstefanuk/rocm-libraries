@@ -1,7 +1,6 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-# Define benchmark executable
 add_executable(rocsparse-bench
     client.cpp
     rocsparse_bench_app.cpp
@@ -179,7 +178,6 @@ add_executable(rocsparse-bench
     ${PROJECT_SOURCE_DIR}/clients/common/rocsparseio.cpp
 )
 
-# Target compile definitions
 if(ROCSPARSE_ENABLE_MEMSTAT)
     target_compile_definitions(rocsparse-bench PRIVATE ROCSPARSE_WITH_MEMSTAT)
 endif()
@@ -188,17 +186,14 @@ if(ROCSPARSE_ENABLE_ILP64)
     target_compile_definitions(rocsparse-bench PRIVATE rocsparse_ILP64)
 endif()
 
-# Target compile options
 target_compile_options(rocsparse-bench PRIVATE
     -Wno-deprecated
     -Wno-unused-command-line-argument
     -Wall
 )
 
-# Target compile features
 target_compile_features(rocsparse-bench PRIVATE cxx_std_17)
 
-# Include directories
 target_include_directories(rocsparse-bench PRIVATE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/clients/include>
 )
@@ -222,14 +217,12 @@ if(NOT WIN32 AND OPENMP_FOUND)
     endif()
 endif()
 
-# Link libraries
 target_link_libraries(rocsparse-bench PRIVATE
     roc::rocsparse
     hip::host
     hip::device
 )
 
-# Link OpenMP if found
 if(OPENMP_FOUND)
     if(TARGET OpenMP::omp)
         target_link_libraries(rocsparse-bench PRIVATE OpenMP::omp)
@@ -238,12 +231,10 @@ if(OPENMP_FOUND)
     endif()
 endif()
 
-# Link rocsparseio if available
 if(rocsparseio_FOUND)
     target_link_libraries(rocsparse-bench PRIVATE roc::rocsparseio)
 endif()
 
-# rocTX support
 if(NOT WIN32 AND ROCSPARSE_ENABLE_MARKER)
     if(ROCTRACER_INCLUDE_DIR AND ROCTX_LIBRARY)
         target_include_directories(rocsparse-bench PRIVATE ${ROCTRACER_INCLUDE_DIR})
@@ -252,5 +243,4 @@ if(NOT WIN32 AND ROCSPARSE_ENABLE_MARKER)
     endif()
 endif()
 
-# Install benchmark executable
 rocm_install(TARGETS rocsparse-bench COMPONENT benchmarks DESTINATION "${CMAKE_INSTALL_BINDIR}")

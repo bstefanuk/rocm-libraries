@@ -1,7 +1,6 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-# rocsparseio tools
 foreach(app rocsparseio-info rocsparseio-convert)
     add_executable(${app}
         ${app}.cpp
