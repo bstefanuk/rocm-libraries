@@ -86,6 +86,7 @@ target_sources(rocsparse PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_coomv_analysis.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_coomv_aos_impl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_coomv_aos.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_csrmv_helpers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_csrmv_template_rowsplit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_csrmv_template_adaptive.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/level2/rocsparse_csrmv_template_lrb.cpp
