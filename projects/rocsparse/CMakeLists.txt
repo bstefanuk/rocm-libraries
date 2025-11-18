@@ -147,7 +147,7 @@ if(ROCSPARSE_ENABLE_CLIENT)
     endif()
 endif()
 
-if(ROCSPARSE_BUILD_SHARED_LIBS)
+if(ROCSPARSE_BUILD_SHARED_LIBS OR BUILD_SHARED_LIBS)
     add_library(rocsparse SHARED "")
 else()
     add_library(rocsparse STATIC "")
