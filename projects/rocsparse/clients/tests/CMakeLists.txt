@@ -245,7 +245,7 @@ if(NOT WIN32 AND ROCSPARSE_ENABLE_MARKER)
 endif()
 
 # Prepare testing data
-set(ROCSPARSE_TEST_DATA "${PROJECT_BINARY_DIR}/staging/rocsparse_test.data")
+set(ROCSPARSE_TEST_DATA "${CMAKE_CURRENT_BINARY_DIR}/../staging/rocsparse_test.data")
 string(REGEX REPLACE ".cpp" ".yaml" ROCSPARSE_TEST_YAMLS "${ROCSPARSE_TEST_SOURCES}")
 
 add_custom_command(
@@ -282,7 +282,7 @@ if(WIN32)
     )
     foreach(file_i ${third_party_dlls})
         add_custom_command(TARGET rocsparse-test POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${file_i} ${PROJECT_BINARY_DIR}/staging/
+            COMMAND ${CMAKE_COMMAND} -E copy ${file_i} ${CMAKE_CURRENT_BINARY_DIR}/../staging/
         )
     endforeach()
 endif()

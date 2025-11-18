@@ -40,7 +40,7 @@ if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
 
     # Create custom targets and commands for test data files
     set(ROCSPARSE_CLIENTMATRICES "${PROJECT_SOURCE_DIR}/cmake/rocsparse_clientmatrices.cmake")
-    set(ROCSPARSE_CONVERT "${PROJECT_BINARY_DIR}/rocsparse_mtx2csr")
+    set(ROCSPARSE_CONVERT "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_mtx2csr")
 
     add_custom_command(
         OUTPUT "${ROCSPARSE_CONVERT}"
@@ -50,7 +50,7 @@ if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
-    set(ROCSPARSE_COMMON "${PROJECT_BINARY_DIR}/staging/rocsparse_common.yaml")
+    set(ROCSPARSE_COMMON "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_common.yaml")
     add_custom_command(
         OUTPUT "${ROCSPARSE_COMMON}"
         COMMAND ${CMAKE_COMMAND} -E copy
@@ -59,7 +59,7 @@ if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
-    set(ROCSPARSE_TEMPLATE "${PROJECT_BINARY_DIR}/staging/rocsparse_template.yaml")
+    set(ROCSPARSE_TEMPLATE "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_template.yaml")
     add_custom_command(
         OUTPUT "${ROCSPARSE_TEMPLATE}"
         COMMAND ${CMAKE_COMMAND} -E copy
@@ -68,9 +68,9 @@ if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
-    set(ROCSPARSE_SMOKE "${PROJECT_BINARY_DIR}/staging/rocsparse_smoke.yaml")
-    set(ROCSPARSE_REGRESSION "${PROJECT_BINARY_DIR}/staging/rocsparse_regression.yaml")
-    set(ROCSPARSE_EXTENDED "${PROJECT_BINARY_DIR}/staging/rocsparse_extended.yaml")
+    set(ROCSPARSE_SMOKE "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_smoke.yaml")
+    set(ROCSPARSE_REGRESSION "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_regression.yaml")
+    set(ROCSPARSE_EXTENDED "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_extended.yaml")
 
     add_custom_command(
         OUTPUT "${ROCSPARSE_SMOKE}" "${ROCSPARSE_REGRESSION}" "${ROCSPARSE_EXTENDED}"
@@ -87,7 +87,7 @@ if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
-    set(ROCSPARSE_GENTEST "${PROJECT_BINARY_DIR}/staging/rocsparse_gentest.py")
+    set(ROCSPARSE_GENTEST "${CMAKE_CURRENT_BINARY_DIR}/staging/rocsparse_gentest.py")
     add_custom_command(
         OUTPUT "${ROCSPARSE_GENTEST}"
         COMMAND ${CMAKE_COMMAND} -E copy
