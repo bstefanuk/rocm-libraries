@@ -30,6 +30,7 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 
 include(fetch_rocm_cmake)
 include(rocsparse_supported_architectures)
+include(rocsparse_target_configure_sanitizers)
 include(CMakeDependentOption)
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -148,9 +149,9 @@ if(ROCSPARSE_ENABLE_CLIENT)
 endif()
 
 if(ROCSPARSE_BUILD_SHARED_LIBS OR BUILD_SHARED_LIBS)
-    add_library(rocsparse SHARED "")
+    add_library(rocsparse SHARED)
 else()
-    add_library(rocsparse STATIC "")
+    add_library(rocsparse STATIC)
 endif()
 
 add_library(roc::rocsparse ALIAS rocsparse)
@@ -170,14 +171,8 @@ if(ROCSPARSE_ENABLE_OFFLOAD_COMPRESS)
     target_compile_options(rocsparse PRIVATE --offload-compress)
 endif()
 
-if(ROCSPARSE_BUILD_COVERAGE)
-    target_compile_options(rocsparse PRIVATE -fprofile-arcs -ftest-coverage)
-    target_link_options(rocsparse PRIVATE --coverage -lgcov)
-endif()
-
 if(ROCSPARSE_ENABLE_ASAN)
-    target_compile_options(rocsparse PRIVATE -fsanitize=address -shared-libasan)
-    target_link_options(rocsparse PRIVATE -fsanitize=address -shared-libasan -fuse-ld=lld)
+    rocsparse_target_configure_sanitizers(rocsparse PRIVATE)
 endif()
 
 rocm_set_soversion(rocsparse ${rocsparse_SOVERSION})
@@ -303,6 +298,9 @@ rocm_create_package(
 # --- Coverage setup ---
 
 if(ROCSPARSE_BUILD_COVERAGE)
+    target_compile_options(rocsparse PRIVATE -fprofile-arcs -ftest-coverage)
+    target_link_options(rocsparse PRIVATE --coverage -lgcov)
+
     # Coverage analysis target
     add_custom_target(
         coverage_analysis

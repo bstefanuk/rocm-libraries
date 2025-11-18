@@ -23,7 +23,9 @@ else()
     endif()
 endif()
 
-add_executable(rocsparse-test
+add_executable(rocsparse-test)
+
+target_sources(rocsparse-test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/rocsparse_test_main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpby.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpyi.cpp
@@ -170,48 +172,7 @@ add_executable(rocsparse-test
     ${CMAKE_CURRENT_SOURCE_DIR}/test_check_spmat.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_bsrpad_value.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rocsparse_test_listeners.cpp
-    # Common utilities
-    ${PROJECT_SOURCE_DIR}/clients/common/utility.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_random.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_reproducibility.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_reproducibility_test.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_reproducibility_test_data.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_reproducibility_results.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_check.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_parse_data.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_enum.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_enum_name.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_enum_from_name.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_init.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_host.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_vector_utils.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_laplace2d.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_laplace3d.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_zero.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_random.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_tridiagonal.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_pentadiagonal.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_matrix_factory_file.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_exporter_rocsparseio.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_exporter_rocalution.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_exporter_matrixmarket.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_exporter_ascii.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_exporter_format_t.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_type_conversion.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_importer_rocalution.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_importer_rocsparseio.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_importer_matrixmarket.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_importer_mlbsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_importer_mlcsr.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_importer_format_t.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_clients_envariables.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_clients_matrices_dir.cpp
-    ${PROJECT_SOURCE_DIR}/clients/common/rocsparseio.cpp
 )
-
-# Add testing implementation sources from testings subdirectory
-add_subdirectory(${PROJECT_SOURCE_DIR}/clients/testings ${CMAKE_CURRENT_BINARY_DIR}/testings)
 
 target_compile_definitions(rocsparse-test PRIVATE GOOGLE_TEST)
 
@@ -221,6 +182,10 @@ endif()
 
 if(ROCSPARSE_ENABLE_ILP64)
     target_compile_definitions(rocsparse-test PRIVATE rocsparse_ILP64)
+endif()
+
+if(ROCSPARSE_ENABLE_ASAN)
+    rocsparse_target_configure_sanitizers(rocsparse-test PRIVATE)
 endif()
 
 target_compile_options(rocsparse-test PRIVATE
@@ -234,7 +199,7 @@ target_compile_options(rocsparse-test PRIVATE
 target_compile_features(rocsparse-test PRIVATE cxx_std_17)
 
 target_include_directories(rocsparse-test PRIVATE
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/clients/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
 )
 
 # OpenMP RPATH handling for hip-clang
@@ -285,15 +250,15 @@ string(REGEX REPLACE ".cpp" ".yaml" ROCSPARSE_TEST_YAMLS "${ROCSPARSE_TEST_SOURC
 
 add_custom_command(
     OUTPUT "${ROCSPARSE_TEST_DATA}"
-    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_gentest.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/rocsparse_gentest.py
             -m ${PROJECT_BINARY_DIR}/matrices
-            -I ${PROJECT_SOURCE_DIR}/clients/include
+            -I ${CMAKE_CURRENT_SOURCE_DIR}/../include
             rocsparse_test.yaml
             -o "${ROCSPARSE_TEST_DATA}"
     DEPENDS
-        ${PROJECT_SOURCE_DIR}/clients/common/rocsparse_gentest.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/../common/rocsparse_gentest.py
         rocsparse_test.yaml
-        ${PROJECT_SOURCE_DIR}/clients/include/rocsparse_common.yaml
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include/rocsparse_common.yaml
         ${ROCSPARSE_TEST_YAMLS}
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )

@@ -1,22 +1,11 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-# Fortran module handling
-if(ROCSPARSE_ENABLE_FORTRAN)
-    # Set Fortran module output directory
-    set(CMAKE_Fortran_MODULE_DIRECTORY "${PROJECT_BINARY_DIR}/include/rocsparse")
-
-    # Create Fortran module OBJECT library
-    add_library(rocsparse-fortran-module OBJECT
-        ${PROJECT_SOURCE_DIR}/library/src/rocsparse_enums.f90
-        ${PROJECT_SOURCE_DIR}/library/src/rocsparse.f90
-    )
-endif()
-
 # Set directory-level runtime output for all client executables
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/clients/staging")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/staging")
 
-# Add subdirectories based on enabled options
+add_subdirectory(tools)
+
 if(ROCSPARSE_ENABLE_SAMPLES)
     add_subdirectory(samples)
 endif()
@@ -25,13 +14,15 @@ if(ROCSPARSE_ENABLE_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 
-# Always build tools
-add_subdirectory(tools)
-
-if(ROCSPARSE_BUILD_TESTING)
+if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+endif()
 
+add_subdirectory(testings)
+add_subdirectory(common)
+
+if(ROCSPARSE_BUILD_TESTING OR BUILD_TESTING)
     # Build mtx2csr converter executable
     if(NOT CONVERT_SOURCE)
         set(CONVERT_SOURCE "${PROJECT_SOURCE_DIR}/deps/convert.cpp")
