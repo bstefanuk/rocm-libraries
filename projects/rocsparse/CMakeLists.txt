@@ -29,7 +29,7 @@ endif()
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 
 include(fetch_rocm_cmake)
-include(rocsparse_supported_architectures.cmake)
+include(rocsparse_supported_architectures)
 include(CMakeDependentOption)
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
@@ -193,7 +193,8 @@ endif()
 # --- Packaging and installation ---
 
 if(ROCSPARSE_ENABLE_CLIENT)
-    include(rocm_client_packages.cmake)
+    include(rocm_client_prerequisites)
+    rocm_set_client_package_prerequisites() # Sets OPENMP and GFORTRAN variables
     rocm_package_setup_component(clients)
     rocm_package_setup_client_component(clients-common)
 endif()
@@ -204,10 +205,6 @@ endif()
 
 if(ROCSPARSE_ENABLE_BENCHMARKS)
     rocm_package_setup_client_component(benchmarks DEPENDS COMPONENT clients-common)
-endif()
-
-if(ROCSPARSE_ENABLE_SAMPLES)
-    rocm_package_setup_client_component(samples)
 endif()
 
 if(ROCSPARSE_ENABLE_FORTRAN)
@@ -253,11 +250,8 @@ rocm_export_targets(
     CONFIG_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/rocsparse-config.cmake.in"
 )
 
-
-# Set up runtime component
 rocm_package_setup_component(runtime)
 
-# HIP runtime dependencies
 set(HIP_RUNTIME_MINIMUM "4.5.0")
 if(ROCSPARSE_ENABLE_ASAN)
     set(DEPENDS_HIP_RUNTIME "hip-runtime-amd-asan")
@@ -265,19 +259,15 @@ else()
     set(DEPENDS_HIP_RUNTIME "hip-runtime-amd")
 endif()
 
-# Add runtime dependencies
 rocm_package_add_dependencies(DEPENDS "${DEPENDS_HIP_RUNTIME} >= ${HIP_RUNTIME_MINIMUM}" COMPONENT runtime)
 
-# rocBLAS dependency
 if(rocblas_FOUND)
     set(ROCBLAS_MINIMUM "4.1.0")
     rocm_package_add_dependencies(DEPENDS "rocblas >= ${ROCBLAS_MINIMUM}" COMPONENT runtime)
 endif()
 
-# Add rocm-core dependency
 rocm_package_add_dependencies(DEPENDS "rocm-core" COMPONENT runtime)
 
-# Development package depends on runtime package
 rocm_package_add_deb_dependencies(DEPENDS "rocsparse (>= ${rocsparse_VERSION})" COMPONENT devel)
 rocm_package_add_rpm_dependencies(DEPENDS "rocsparse >= ${rocsparse_VERSION}" COMPONENT devel)
 
@@ -302,7 +292,6 @@ set(ROCSPARSE_CONFIG_DIR "\${CPACK_PACKAGING_INSTALL_PREFIX}/${CMAKE_INSTALL_LIB
     "Path placed into ldconfig file"
 )
 
-# Create package
 rocm_create_package(
     NAME rocsparse
     DESCRIPTION "ROCm SPARSE library"
