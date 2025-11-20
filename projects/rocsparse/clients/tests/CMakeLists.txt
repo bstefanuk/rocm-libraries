@@ -4,25 +4,6 @@
 find_package(GTest 1.11.0 REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-if(NOT EXISTS "${CMAKE_MATRICES_DIR}")
-    set(CMAKE_MATRICES_DIR ${PROJECT_BINARY_DIR}/matrices CACHE STRING "Matrices directory")
-    file(MAKE_DIRECTORY ${CMAKE_MATRICES_DIR})
-
-    set(CONVERT_SOURCE ${PROJECT_SOURCE_DIR}/deps/convert.cpp CACHE STRING "Convert tool mtx2csr")
-    include(${PROJECT_SOURCE_DIR}/cmake/ClientMatrices.cmake)
-else()
-    if(NOT CMAKE_MATRICES_DIR STREQUAL "${PROJECT_BINARY_DIR}/matrices")
-        message(STATUS "Copying matrix files from ${CMAKE_MATRICES_DIR} to ${PROJECT_BINARY_DIR}/matrices")
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_MATRICES_DIR} ${PROJECT_BINARY_DIR}/matrices
-            RESULT_VARIABLE STATUS
-        )
-        if(STATUS AND NOT STATUS EQUAL 0)
-            message(FATAL_ERROR "Failed to copy matrix .csr files")
-        endif()
-    endif()
-endif()
-
 add_executable(rocsparse-test)
 
 target_sources(rocsparse-test PRIVATE

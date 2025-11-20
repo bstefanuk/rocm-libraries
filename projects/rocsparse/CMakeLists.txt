@@ -1,17 +1,13 @@
 # Copyright Advanced Micro Devices, Inc., or its affiliates.
 # SPDX-License-Identifier: MIT
 
-cmake_minimum_required(VERSION 3.25.2)
+cmake_minimum_required(VERSION 3.25.2 FATAL_ERROR)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile_commands.json for clang tooling")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Load backward compatibility shim BEFORE project() to retain behaviour in included files.
-include(rocsparse_shim)
-
-# Do not set VERSION here, it is managed by rocm_setup_version
-project(rocsparse LANGUAGES CXX C)
+project(rocsparse VERSION 4.2.0 LANGUAGES CXX C)
 
 if(POLICY CMP0066)
     cmake_policy(SET CMP0066 NEW) # Honor per-config flags in try_compile()
@@ -28,6 +24,7 @@ endif()
 # Set cpack license file to avoid rocm-cmake warning
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 
+include(rocsparse_shim)
 include(fetch_rocm_cmake)
 include(rocsparse_supported_architectures)
 include(rocsparse_target_configure_sanitizers)
@@ -36,10 +33,8 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
-set(VERSION_STRING "4.2.0")
-set(SOVERSION_STRING "1.0")
-rocm_setup_version(VERSION ${VERSION_STRING})
-set(rocsparse_SOVERSION ${SOVERSION_STRING})
+rocm_setup_version(VERSION ${PROJECT_VERSION})
+set(rocsparse_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     if(WIN32)
@@ -52,24 +47,22 @@ endif()
 # --- Build Options ---
 
 option(ROCSPARSE_BUILD_SHARED_LIBS "Build rocSPARSE as a shared library" ON)
-option(ROCSPARSE_BUILD_TESTING "Build tests (requires googletest)" OFF)
-option(ROCSPARSE_ENABLE_BENCHMARKS "Build benchmarks" OFF)
+option(ROCSPARSE_BUILD_TESTING "Build tests (requires googletest)" ON)
+option(ROCSPARSE_ENABLE_BENCHMARKS "Build benchmarks" ON)
 option(ROCSPARSE_ENABLE_SAMPLES "Build examples" OFF)
 option(ROCSPARSE_BUILD_DOCS "Build documentation" OFF)
 
 # Optional features
 option(ROCSPARSE_BUILD_COVERAGE "Build with code coverage enabled" OFF)
 option(ROCSPARSE_ENABLE_ASAN "Build with address sanitizer enabled" OFF)
+option(ROCSPARSE_ENABLE_FORTRAN "Build rocSPARSE clients requiring Fortran capabilities" ON)
 option(ROCSPARSE_ENABLE_MEMSTAT "Build with memory statistics enabled" OFF)
 option(ROCSPARSE_ENABLE_ILP64 "Build with rocsparse_int equal to int64_t" OFF)
 option(ROCSPARSE_ENABLE_COMPRESSED_DBG "Enable compressed debug symbols" ON)
 option(ROCSPARSE_ENABLE_ROCBLAS "Enable building rocSPARSE with rocBLAS" ON)
 option(ROCSPARSE_ENABLE_MARKER "Enable rocTracer marker support" ON)
 option(ROCSPARSE_ENABLE_OFFLOAD_COMPRESS "Enable offload compression during compilation" ON)
-
-if(NOT ROCSPARSE_ENABLE_FORTRAN)
-    option(ROCSPARSE_ENABLE_FORTRAN "Build rocSPARSE clients requiring Fortran capabilities" ON)
-endif()
+option(ROCSPARSE_SUPPRESS_WARNINGS "Suppress warnings" OFF)
 
 if(ROCSPARSE_ENABLE_SAMPLES OR ROCSPARSE_BUILD_TESTING OR ROCSPARSE_ENABLE_BENCHMARKS)
     set(ROCSPARSE_ENABLE_CLIENT ON)
@@ -343,4 +336,11 @@ if(ROCSPARSE_BUILD_COVERAGE)
         COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcda" -delete
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
+endif()
+
+# --- Epilogue ---
+
+# Colocalize warning suppression
+if(ROCSPARSE_SUPPRESS_WARNINGS)
+    target_compile_options(rocsparse PRIVATE -Wno-deprecated-declarations -Wno-switch)
 endif()
