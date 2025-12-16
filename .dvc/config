@@ -1,8 +1,14 @@
 [core]
-    remote = localdvctmp
+    remote = dev-localdvctmp
     autostage = true
 ['remote "storage"']
     url = s3://therock-dvc/rocm-libraries
     allow_anonymous_login = true
 ['remote "localdvctmp"']
     url = /home/braden/localdvctmp
+['remote "dev"']
+    url = s3://my-dev-bucket/path
+['remote "prod"']
+    url = s3://my-prod-bucket/path
+['remote "dev-localdvctmp"']
+    url = /home/braden/dev-localdvctmp
