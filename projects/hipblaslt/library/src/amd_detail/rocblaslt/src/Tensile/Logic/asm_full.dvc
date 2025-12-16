@@ -1,0 +1,6 @@
+outs:
+- md5: 7633c6e5fb19478b336a1b11a233867f.dir
+  size: 5149265549
+  nfiles: 2241
+  hash: md5
+  path: asm_full
