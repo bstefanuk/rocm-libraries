@@ -1,6 +1,8 @@
 [core]
-    remote = storage
+    remote = localdvctmp
     autostage = true
 ['remote "storage"']
     url = s3://therock-dvc/rocm-libraries
     allow_anonymous_login = true
+['remote "localdvctmp"']
+    url = /home/braden/localdvctmp
