@@ -6,9 +6,5 @@
     allow_anonymous_login = true
 ['remote "localdvctmp"']
     url = /home/braden/localdvctmp
-['remote "dev"']
-    url = s3://my-dev-bucket/path
-['remote "prod"']
-    url = s3://my-prod-bucket/path
 ['remote "dev-localdvctmp"']
     url = /home/braden/dev-localdvctmp
