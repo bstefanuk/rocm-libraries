@@ -1,10 +1,9 @@
 [core]
-    remote = dev-localdvctmp
     autostage = true
 ['remote "storage"']
     url = s3://therock-dvc/rocm-libraries
     allow_anonymous_login = true
-['remote "localdvctmp"']
-    url = /home/braden/localdvctmp
-['remote "dev-localdvctmp"']
-    url = /home/braden/dev-localdvctmp
+['remote "hipblaslt-prod"']
+    url = s3://therock-dvc-dev
+['remote "hipblaslt-dev"']
+    url = /home/braden/hipblaslt-dvc-poc-dev2/
