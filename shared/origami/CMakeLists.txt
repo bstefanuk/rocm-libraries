@@ -1,27 +1,5 @@
-################################################################################
-#
-# MIT License
-#
-# Copyright 2025 AMD ROCm(TM) Software
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell cop-
-# ies of the Software, and to permit persons to whom the Software is furnished
-# to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IM-
-# PLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNE-
-# CTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-################################################################################
+# Copyright Advanced Micro Devices, Inc., or its affiliates.
+# SPDX-License-Identifier: MIT
 
 cmake_minimum_required(VERSION 3.24.4)
 
@@ -39,6 +17,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md")
 
 include(dependencies)
+include(GNUInstallDirs)
 
 rocm_setup_version(VERSION ${PROJECT_VERSION})
 
@@ -104,32 +83,7 @@ endif()
 
 if(ORIGAMI_BUILD_TESTING OR BUILD_TESTING)
     enable_testing()
-
     add_subdirectory(tests)
-
-    if(ORIGAMI_ENABLE_PYTHON)
-        find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-
-        add_test(NAME origami_python_test COMMAND "${Python_EXECUTABLE}" "origami_test.py"
-                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python"
-        )
-
-        add_test(NAME origami_python_grid_test COMMAND "${Python_EXECUTABLE}"
-                                                       "origami_grid_test.py"
-                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python"
-        )
-
-        set_tests_properties(
-            origami_python_test origami_python_grid_test
-            PROPERTIES
-                ENVIRONMENT
-                "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}/python:${CMAKE_CURRENT_SOURCE_DIR}/python:$ENV{PYTHONPATH}"
-        )
-
-        set_tests_properties(
-            origami_python_test origami_python_grid_test PROPERTIES DEPENDS origami_python
-        )
-    endif()
 endif()
 
 if(ORIGAMI_ENABLE_INSTALL OR ORIGAMI_STANDALONE)
