@@ -3,7 +3,7 @@
 ['remote "storage"']
     url = s3://therock-dvc/rocm-libraries
     allow_anonymous_login = true
+['remote "hipblaslt-dev"']
+    url = /home/braden/hipblaslt-dvc-poc-dev-2026-01-17
 ['remote "hipblaslt-prod"']
     url = s3://therock-dvc-dev
-['remote "hipblaslt-dev"']
-    url = /home/braden/hipblaslt-dvc-poc-dev2/
