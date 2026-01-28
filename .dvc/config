@@ -1,9 +1,7 @@
 [core]
     autostage = true
-['remote "storage"']
-    url = s3://therock-dvc/rocm-libraries
-    allow_anonymous_login = true
+    remote = hipblaslt-dev
 ['remote "hipblaslt-dev"']
-    url = /home/braden/hipblaslt-dvc-poc-dev-2026-01-17
+    url = s3://therock-dvc-dev/dev
 ['remote "hipblaslt-prod"']
-    url = s3://therock-dvc-dev
+    url = s3://therock-dvc-dev/prod
