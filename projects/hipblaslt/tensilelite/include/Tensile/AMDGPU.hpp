@@ -280,6 +280,16 @@ namespace TensileLite
             return _pciChipId;
         }
 
+        // Override the PCI chip-id on this hardware instance.
+        // Intended for runtime fallback paths (see ChipIdRegistry::getFallbackChipIds)
+        // that need to re-query a chip-id-agnostic library when the chip-id-specific
+        // library yields no candidate solutions. Callers must operate on a private
+        // copy of the hardware object to avoid mutating shared/cached state.
+        void setPciChipId(std::optional<int> chipId)
+        {
+            _pciChipId = chipId;
+        }
+
         virtual std::string description() const override;
 
         const int getSKDynamicGrid() const

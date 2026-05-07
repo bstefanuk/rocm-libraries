@@ -42,6 +42,8 @@
 #include "rocroller_host.hpp"
 #endif
 
+#include <Tensile/AMDGPU.hpp>
+#include <Tensile/AMDGPUPredicates.hpp>
 #include <Tensile/Contractions.hpp>
 #include <Tensile/EmbeddedLibrary.hpp>
 #include <Tensile/MasterSolutionLibrary.hpp>
@@ -2782,7 +2784,24 @@ rocblaslt_status runContractionProblem(rocblaslt_handle                   handle
             status = getBestSolutions(
                 prob, handle, gemmData, 1, &heuristicResult, &returnAlgoCount, prob.workspaceSize);
             if(returnAlgoCount == 0)
+            {
+                if(get_logger_layer_mode() & rocblaslt_layer_mode_log_error)
+                {
+                    std::ostringstream msg;
+                    msg << "no Tensile solution found (returnAlgoCount==0) for "
+                        << "m=" << prob.m << " n=" << prob.n << " k=" << prob.k
+                        << " batch=" << prob.batch_count
+                        << " trans_a=" << prob.trans_a << " trans_b=" << prob.trans_b
+                        << " a_type=" << prob.a_type << " b_type=" << prob.b_type
+                        << " c_type=" << prob.c_type << " d_type=" << prob.d_type
+                        << " compute_type=" << prob.compute_type
+                        << " gradient=" << prob.gradient
+                        << " grouped_gemm=" << prob.grouped_gemm
+                        << " strided_batch=" << prob.strided_batch;
+                    log_error(__func__, msg.str());
+                }
                 return rocblaslt_status_not_implemented;
+            }
             algo = &heuristicResult.algo;
         }
         updateTensileProblem(prob, data->problem);
@@ -2893,10 +2912,20 @@ rocblaslt_status runContractionProblem(rocblaslt_handle                   handle
 
         if(!solution)
         {
-#if 0
-            std::ostream msg;
-            print_once(msg << "\nrocblaslt error: No Tensile solution found for " << prob);
-#endif
+            if(get_logger_layer_mode() & rocblaslt_layer_mode_log_error)
+            {
+                std::ostringstream msg;
+                msg << "library->getSolutionByIndex returned nullptr for solutionIndex="
+                    << *solutionIndex
+                    << " (m=" << prob.m << " n=" << prob.n << " k=" << prob.k
+                    << " batch=" << prob.batch_count
+                    << " trans_a=" << prob.trans_a << " trans_b=" << prob.trans_b
+                    << " a_type=" << prob.a_type << " b_type=" << prob.b_type
+                    << " compute_type=" << prob.compute_type
+                    << " gradient=" << prob.gradient
+                    << " grouped_gemm=" << prob.grouped_gemm << ")";
+                log_error(__func__, msg.str());
+            }
             status = rocblaslt_status_not_implemented;
         }
         else
@@ -2956,19 +2985,37 @@ rocblaslt_status runContractionProblem(rocblaslt_handle                   handle
     }
     catch(const std::exception& e)
     {
-#if 0
-        std::ostream msg;
-        print_once(msg << "\nrocblaslt error: " << (solution ? "" : "No ")
-                       << "Tensile solution found, but exception thrown for " << prob << e.what());
-#endif
+        if(get_logger_layer_mode() & rocblaslt_layer_mode_log_error)
+        {
+            std::ostringstream msg;
+            msg << "exception thrown in runContractionProblem: " << e.what()
+                << " (m=" << prob.m << " n=" << prob.n << " k=" << prob.k
+                << " batch=" << prob.batch_count
+                << " trans_a=" << prob.trans_a << " trans_b=" << prob.trans_b
+                << " a_type=" << prob.a_type << " b_type=" << prob.b_type
+                << " c_type=" << prob.c_type << " d_type=" << prob.d_type
+                << " compute_type=" << prob.compute_type
+                << " gradient=" << prob.gradient
+                << " grouped_gemm=" << prob.grouped_gemm << ")";
+            log_error(__func__, msg.str());
+        }
     }
     catch(...)
     {
-#if 0
-        std::ostream msg;
-        print_once(msg << "\nrocblaslt error: " << (solution ? "" : "No ")
-                       << "Tensile solution found, but unknown exception thrown for " << prob);
-#endif
+        if(get_logger_layer_mode() & rocblaslt_layer_mode_log_error)
+        {
+            std::ostringstream msg;
+            msg << "unknown exception thrown in runContractionProblem"
+                << " (m=" << prob.m << " n=" << prob.n << " k=" << prob.k
+                << " batch=" << prob.batch_count
+                << " trans_a=" << prob.trans_a << " trans_b=" << prob.trans_b
+                << " a_type=" << prob.a_type << " b_type=" << prob.b_type
+                << " c_type=" << prob.c_type << " d_type=" << prob.d_type
+                << " compute_type=" << prob.compute_type
+                << " gradient=" << prob.gradient
+                << " grouped_gemm=" << prob.grouped_gemm << ")";
+            log_error(__func__, msg.str());
+        }
     }
 
     return status;
@@ -3789,6 +3836,49 @@ std::vector<std::shared_ptr<TensileLite::ContractionSolution>>
             prob, library, hardware, data->problem, enableEpilogue, requestedAlgoCount);
     }
 
+    // Chip-id fallback retry. Per-chip-id logic libraries (e.g. gfx950_id75a3/) are
+    // performance overlays on top of the chip-id-agnostic gfx950 library; they are
+    // not meant to be exclusive replacements. If the chip-id-specific library yields
+    // zero candidate solutions for a problem (e.g. due to an unintentionally narrow
+    // [Device ...] predicate in a tuned yaml, or an MoE/permuted layout that no tuned
+    // entry matches), retry the search against a fallback chip-id whose generic
+    // library is expected to cover the shape. ChipIdRegistry encodes the same
+    // mi355x -> mi350 / id75a3 -> id75a0 fallback used by the build-time pipeline.
+    if(solutions.size() == 0)
+    {
+        auto* amdgpu = dynamic_cast<TensileLite::AMDGPU*>(hardware.get());
+        if(amdgpu != nullptr && amdgpu->pciChipId().has_value()
+           && TensileLite::ChipIdRegistry::supportsChipIdPredicate(amdgpu->processor))
+        {
+            const int originalChipId  = amdgpu->pciChipId().value();
+            const auto fallbackChipIds = TensileLite::ChipIdRegistry::getFallbackChipIds(originalChipId);
+            for(int fallbackChipId : fallbackChipIds)
+            {
+                // Operate on a private copy of the hardware so we never mutate the
+                // shared/cached instance handed out by get_library_and_adapter.
+                auto fallbackHardware = std::make_shared<TensileLite::AMDGPU>(*amdgpu);
+                fallbackHardware->setPciChipId(std::make_optional(fallbackChipId));
+
+                if(get_logger_layer_mode() & rocblaslt_layer_mode_log_info)
+                {
+                    std::ostringstream msg;
+                    msg << "no solutions found for pciChipId=0x" << std::hex << originalChipId
+                        << ", retrying with fallback pciChipId=0x" << fallbackChipId << std::dec;
+                    log_info(__func__, msg.str());
+                }
+
+                solutions = getSolutions(prob,
+                                         library,
+                                         std::static_pointer_cast<TensileLite::Hardware>(fallbackHardware),
+                                         data->problem,
+                                         enableEpilogue,
+                                         requestedAlgoCount);
+                if(solutions.size() > 0)
+                    break;
+            }
+        }
+    }
+
     return solutions;
 }
 
@@ -3837,6 +3927,49 @@ rocblaslt_status getBestSolutions(RocblasltContractionProblem const& prob,
         data->problem.setF32XdlMathOp(rocisa::DataType::Float);
         solutions = getSolutions(
             prob, library, hardware, data->problem, enableEpilogue, requestedAlgoCount);
+    }
+
+    // Chip-id fallback retry. Per-chip-id logic libraries (e.g. gfx950_id75a3/) are
+    // performance overlays on top of the chip-id-agnostic gfx950 library; they are
+    // not meant to be exclusive replacements. If the chip-id-specific library yields
+    // zero candidate solutions for a problem (e.g. due to an unintentionally narrow
+    // [Device ...] predicate in a tuned yaml, or an MoE/permuted layout that no tuned
+    // entry matches), retry the search against a fallback chip-id whose generic
+    // library is expected to cover the shape. ChipIdRegistry encodes the same
+    // mi355x -> mi350 / id75a3 -> id75a0 fallback used by the build-time pipeline.
+    if(solutions.size() == 0)
+    {
+        auto* amdgpu = dynamic_cast<TensileLite::AMDGPU*>(hardware.get());
+        if(amdgpu != nullptr && amdgpu->pciChipId().has_value()
+           && TensileLite::ChipIdRegistry::supportsChipIdPredicate(amdgpu->processor))
+        {
+            const int originalChipId  = amdgpu->pciChipId().value();
+            const auto fallbackChipIds = TensileLite::ChipIdRegistry::getFallbackChipIds(originalChipId);
+            for(int fallbackChipId : fallbackChipIds)
+            {
+                // Operate on a private copy of the hardware so we never mutate the
+                // shared/cached instance handed out by get_library_and_adapter.
+                auto fallbackHardware = std::make_shared<TensileLite::AMDGPU>(*amdgpu);
+                fallbackHardware->setPciChipId(std::make_optional(fallbackChipId));
+
+                if(get_logger_layer_mode() & rocblaslt_layer_mode_log_info)
+                {
+                    std::ostringstream msg;
+                    msg << "no solutions found for pciChipId=0x" << std::hex << originalChipId
+                        << ", retrying with fallback pciChipId=0x" << fallbackChipId << std::dec;
+                    log_info(__func__, msg.str());
+                }
+
+                solutions = getSolutions(prob,
+                                         library,
+                                         std::static_pointer_cast<TensileLite::Hardware>(fallbackHardware),
+                                         data->problem,
+                                         enableEpilogue,
+                                         requestedAlgoCount);
+                if(solutions.size() > 0)
+                    break;
+            }
+        }
     }
 
     auto algoCount = min(static_cast<size_t>(requestedAlgoCount), solutions.size());
