@@ -1479,6 +1479,9 @@ rocblaslt_status fp64EmulatedGemm(hipblasOperation_t           opA,
                                   hipStream_t                  stream,
                                   const Fp64EmulationSettings& settings)
 {
+    if(settings.num_moduli == 0u
+       && cached_mantissa_bit_count_env().state == FP64_EMULATION_ENV_INVALID)
+        return rocblaslt_status_invalid_value;
     const unsigned num_moduli = (settings.num_moduli >= 2u && settings.num_moduli <= OZ2_S_MAX)
                                     ? settings.num_moduli : fp64EmulationNumModuli();
     if(settings.dynamic_mode)
@@ -1571,16 +1574,42 @@ rocblaslt_status fp64EmulatedGemm(hipblasOperation_t           opA,
     hipblasLtMatrixLayout_t layoutA  = nullptr;
     hipblasLtMatrixLayout_t layoutB  = nullptr;
     hipblasLtMatrixLayout_t layoutCD = nullptr;
+    hipblasLtMatrixLayout_t layoutA_b  = nullptr;
+    hipblasLtMatrixLayout_t layoutB_b  = nullptr;
+    hipblasLtMatrixLayout_t layoutCD_b = nullptr;
     hipblasLtMatmulDesc_t   matmulDesc = nullptr;
 
-    hipblasLtMatrixLayoutCreate(&layoutA,  HIP_R_8I, static_cast<uint64_t>(k), static_cast<uint64_t>(m), static_cast<int64_t>(lda8i));
-    hipblasLtMatrixLayoutCreate(&layoutB,  HIP_R_8I, static_cast<uint64_t>(k), static_cast<uint64_t>(n), static_cast<int64_t>(ldb8i));
-    hipblasLtMatrixLayoutCreate(&layoutCD, HIP_R_32I, static_cast<uint64_t>(m), static_cast<uint64_t>(n), static_cast<int64_t>(ldc32i));
-    hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I);
+    auto cleanup = [&]() noexcept {
+        bool ok = true;
+        if(layoutCD_b) (void)hipblasLtMatrixLayoutDestroy(layoutCD_b);
+        if(layoutB_b)  (void)hipblasLtMatrixLayoutDestroy(layoutB_b);
+        if(layoutA_b)  (void)hipblasLtMatrixLayoutDestroy(layoutA_b);
+        if(matmulDesc) (void)hipblasLtMatmulDescDestroy(matmulDesc);
+        if(layoutCD)   (void)hipblasLtMatrixLayoutDestroy(layoutCD);
+        if(layoutB)    (void)hipblasLtMatrixLayoutDestroy(layoutB);
+        if(layoutA)    (void)hipblasLtMatrixLayoutDestroy(layoutA);
+        if(ws_owned && hipFreeAsync(ws, stream) != hipSuccess) ok = false;
+        return ok;
+    };
+    auto fail_internal = [&]() {
+        cleanup();
+        return rocblaslt_status_internal_error;
+    };
+
+    if(hipblasLtMatrixLayoutCreate(&layoutA, HIP_R_8I, static_cast<uint64_t>(k), static_cast<uint64_t>(m), static_cast<int64_t>(lda8i)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutCreate(&layoutB, HIP_R_8I, static_cast<uint64_t>(k), static_cast<uint64_t>(n), static_cast<int64_t>(ldb8i)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutCreate(&layoutCD, HIP_R_32I, static_cast<uint64_t>(m), static_cast<uint64_t>(n), static_cast<int64_t>(ldc32i)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatmulDescCreate(&matmulDesc, HIPBLAS_COMPUTE_32I, HIP_R_32I) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
     {
         hipblasOperation_t opT = HIPBLAS_OP_T, opN = HIPBLAS_OP_N;
-        hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSA, &opT, sizeof(opT));
-        hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opN, sizeof(opN));
+        if(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSA, &opT, sizeof(opT)) != HIPBLAS_STATUS_SUCCESS)
+            return fail_internal();
+        if(hipblasLtMatmulDescSetAttribute(matmulDesc, HIPBLASLT_MATMUL_DESC_TRANSB, &opN, sizeof(opN)) != HIPBLAS_STATUS_SUCCESS)
+            return fail_internal();
     }
 
     const int32_t one_i = 1, zero_i = 0;
@@ -1620,23 +1649,25 @@ rocblaslt_status fp64EmulatedGemm(hipblasOperation_t           opA,
 
     if(svmask != 0u) {
         if(hipStreamSynchronize(stream) != hipSuccess) {
-            (void)hipFreeAsync(ws, stream); return rocblaslt_status_internal_error;
+            return fail_internal();
         }
         uint32_t detected = 0u;
         if(hipMemcpy(&detected, nan_flag, sizeof(uint32_t), hipMemcpyDeviceToHost) != hipSuccess) {
-            (void)hipFreeAsync(ws, stream); return rocblaslt_status_internal_error;
+            return fail_internal();
         }
         if(detected & svmask) {
-            if(ws_owned) (void)hipFreeAsync(ws, stream);
+            cleanup();
             return rocblaslt_status_invalid_value;
         }
     }
 
     /* Preliminary INT8 GEMM: C32i_prelim = A8i_high^T × B8i_high */
     _pstart();
-    hipblasLtMatmul(settings.handle, matmulDesc,
-                    &one_i, A8i_high, layoutA, B8i_high, layoutB,
-                    &zero_i, C32i, layoutCD, C32i, layoutCD, nullptr, nullptr, 0, stream);
+    if(hipblasLtMatmul(settings.handle, matmulDesc,
+                       &one_i, A8i_high, layoutA, B8i_high, layoutB,
+                       &zero_i, C32i, layoutCD, C32i, layoutCD, nullptr, nullptr, 0, stream)
+       != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
     _pstop(_t_prelim_gemm);
 
     const float accu_log2P = h_accu_log2P_all[num_moduli - 2];
@@ -1662,23 +1693,29 @@ rocblaslt_status fp64EmulatedGemm(hipblasOperation_t           opA,
     const size_t strideA8i = lda8i * cola8i;
     const size_t strideB8i = ldb8i * static_cast<size_t>(n);
 
-    hipblasLtMatrixLayout_t layoutA_b  = nullptr;
-    hipblasLtMatrixLayout_t layoutB_b  = nullptr;
-    hipblasLtMatrixLayout_t layoutCD_b = nullptr;
-    hipblasLtMatrixLayoutCreate(&layoutA_b,  HIP_R_8I,  static_cast<uint64_t>(k), static_cast<uint64_t>(m), static_cast<int64_t>(lda8i));
-    hipblasLtMatrixLayoutCreate(&layoutB_b,  HIP_R_8I,  static_cast<uint64_t>(k), static_cast<uint64_t>(n), static_cast<int64_t>(ldb8i));
-    hipblasLtMatrixLayoutCreate(&layoutCD_b, HIP_R_32I, static_cast<uint64_t>(m), static_cast<uint64_t>(n), static_cast<int64_t>(ldc32i));
+    if(hipblasLtMatrixLayoutCreate(&layoutA_b, HIP_R_8I, static_cast<uint64_t>(k), static_cast<uint64_t>(m), static_cast<int64_t>(lda8i)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutCreate(&layoutB_b, HIP_R_8I, static_cast<uint64_t>(k), static_cast<uint64_t>(n), static_cast<int64_t>(ldb8i)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutCreate(&layoutCD_b, HIP_R_32I, static_cast<uint64_t>(m), static_cast<uint64_t>(n), static_cast<int64_t>(ldc32i)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
 
     int32_t       batch_cur  = static_cast<int32_t>(chunk_size);
     const int64_t stride_A_b = static_cast<int64_t>(strideA8i);
     const int64_t stride_B_b = static_cast<int64_t>(strideB8i);
     const int64_t stride_C_b = static_cast<int64_t>(szC32i);
-    hipblasLtMatrixLayoutSetAttribute(layoutA_b,  HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT,          &batch_cur,  sizeof(batch_cur));
-    hipblasLtMatrixLayoutSetAttribute(layoutA_b,  HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_A_b, sizeof(stride_A_b));
-    hipblasLtMatrixLayoutSetAttribute(layoutB_b,  HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT,          &batch_cur,  sizeof(batch_cur));
-    hipblasLtMatrixLayoutSetAttribute(layoutB_b,  HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_B_b, sizeof(stride_B_b));
-    hipblasLtMatrixLayoutSetAttribute(layoutCD_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT,          &batch_cur,  sizeof(batch_cur));
-    hipblasLtMatrixLayoutSetAttribute(layoutCD_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_C_b, sizeof(stride_C_b));
+    if(hipblasLtMatrixLayoutSetAttribute(layoutA_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutSetAttribute(layoutA_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_A_b, sizeof(stride_A_b)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutSetAttribute(layoutB_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutSetAttribute(layoutB_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_B_b, sizeof(stride_B_b)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutSetAttribute(layoutCD_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
+    if(hipblasLtMatrixLayoutSetAttribute(layoutCD_b, HIPBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &stride_C_b, sizeof(stride_C_b)) != HIPBLAS_STATUS_SUCCESS)
+        return fail_internal();
 
     for(unsigned scale_start = 0; scale_start < num_moduli; scale_start += scale_chunk_size) {
         const unsigned actual_scale = (scale_start + scale_chunk_size <= num_moduli)
@@ -1726,17 +1763,22 @@ rocblaslt_status fp64EmulatedGemm(hipblasOperation_t           opA,
                                          ? chunk_size : (actual_scale - gemm_local);
             if(static_cast<int32_t>(actual_gemm) != batch_cur) {
                 batch_cur = static_cast<int32_t>(actual_gemm);
-                hipblasLtMatrixLayoutSetAttribute(layoutA_b,  HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur));
-                hipblasLtMatrixLayoutSetAttribute(layoutB_b,  HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur));
-                hipblasLtMatrixLayoutSetAttribute(layoutCD_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur));
+                if(hipblasLtMatrixLayoutSetAttribute(layoutA_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur)) != HIPBLAS_STATUS_SUCCESS)
+                    return fail_internal();
+                if(hipblasLtMatrixLayoutSetAttribute(layoutB_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur)) != HIPBLAS_STATUS_SUCCESS)
+                    return fail_internal();
+                if(hipblasLtMatrixLayoutSetAttribute(layoutCD_b, HIPBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batch_cur, sizeof(batch_cur)) != HIPBLAS_STATUS_SUCCESS)
+                    return fail_internal();
             }
             const int8_t* const A8i_gemm = A8i + gemm_local * strideA8i;
             const int8_t* const B8i_gemm = B8i + gemm_local * strideB8i;
             _pstart();
-            hipblasLtMatmul(settings.handle, matmulDesc,
-                            &one_i, A8i_gemm, layoutA_b, B8i_gemm, layoutB_b,
-                            &zero_i, C32i_batch, layoutCD_b, C32i_batch, layoutCD_b,
-                            nullptr, nullptr, 0, stream);
+            if(hipblasLtMatmul(settings.handle, matmulDesc,
+                               &one_i, A8i_gemm, layoutA_b, B8i_gemm, layoutB_b,
+                               &zero_i, C32i_batch, layoutCD_b, C32i_batch, layoutCD_b,
+                               nullptr, nullptr, 0, stream)
+               != HIPBLAS_STATUS_SUCCESS)
+                return fail_internal();
             _pstop(_t_int8);
 
             const unsigned global_chunk_start = scale_start + gemm_local;
@@ -1822,18 +1864,8 @@ rocblaslt_status fp64EmulatedGemm(hipblasOperation_t           opA,
         }
     }
 
-    hipblasLtMatrixLayoutDestroy(layoutCD_b);
-    hipblasLtMatrixLayoutDestroy(layoutB_b);
-    hipblasLtMatrixLayoutDestroy(layoutA_b);
-    hipblasLtMatmulDescDestroy(matmulDesc);
-    hipblasLtMatrixLayoutDestroy(layoutCD);
-    hipblasLtMatrixLayoutDestroy(layoutB);
-    hipblasLtMatrixLayoutDestroy(layoutA);
-
-    if(ws_owned) {
-        if(hipFreeAsync(ws, stream) != hipSuccess)
-            return rocblaslt_status_internal_error;
-    }
+    if(!cleanup())
+        return rocblaslt_status_internal_error;
 
     if(_prof) {
         (void)hipEventRecord(_ev1, stream); (void)hipStreamSynchronize(stream);

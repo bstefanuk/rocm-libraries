@@ -512,38 +512,37 @@ try
         (rocblaslt_matmul_heuristic_result*)heuristicResultsArray,
         returnAlgoCount));
 
-    /* ── FP64 emulation workspace override */
-    const auto* h           = reinterpret_cast<const _rocblaslt_handle*>(handle);
-    /* Read layout dimensions directly from the internal struct — the public
-     * get_attribute API only exposes attributes managed via set_attribute;
-     * creation-time fields (m, n, type) live in the struct itself.        */
-    const auto* A_layout = reinterpret_cast<const _rocblaslt_matrix_layout*>(Adesc);
-    const auto* D_layout = reinterpret_cast<const _rocblaslt_matrix_layout*>(Ddesc);
-    const auto* desc_ptr = reinterpret_cast<const _rocblaslt_matmul_desc*>(matmulDesc);
+    /* FP64 emulation workspace override. Only inspect descriptors after the
+     * normal heuristic path has accepted the caller's arguments. */
+    if(status == HIPBLAS_STATUS_SUCCESS && handle && matmulDesc && Adesc && Ddesc
+       && heuristicResultsArray && returnAlgoCount)
+    {
+        const auto* h = reinterpret_cast<const _rocblaslt_handle*>(handle);
+        /* Read layout dimensions directly from the internal struct — the public
+         * get_attribute API only exposes attributes managed via set_attribute;
+         * creation-time fields (m, n, type) live in the struct itself.        */
+        const auto* A_layout = reinterpret_cast<const _rocblaslt_matrix_layout*>(Adesc);
+        const auto* D_layout = reinterpret_cast<const _rocblaslt_matrix_layout*>(Ddesc);
+        const auto* desc_ptr = reinterpret_cast<const _rocblaslt_matmul_desc*>(matmulDesc);
 
-    const int64_t     m           = static_cast<int64_t>(D_layout->m);
-    const int64_t     n           = static_cast<int64_t>(D_layout->n);
-    const int64_t     k           = (desc_ptr->op_A == HIPBLAS_OP_N)
-                                    ? static_cast<int64_t>(A_layout->n)
-                                    : static_cast<int64_t>(A_layout->m);
-    const int32_t     batch_count = A_layout->batch_count;
-    const hipDataType type_a      = A_layout->type;
+        const int64_t     m           = static_cast<int64_t>(D_layout->m);
+        const int64_t     n           = static_cast<int64_t>(D_layout->n);
+        const int64_t     k           = (desc_ptr->op_A == HIPBLAS_OP_N)
+                                        ? static_cast<int64_t>(A_layout->n)
+                                        : static_cast<int64_t>(A_layout->m);
+        const int32_t     batch_count = A_layout->batch_count;
+        const hipDataType type_a      = A_layout->type;
 
-    const Fp64EmulationDecision emulDecision =
-        fp64EmulationDecision(h, type_a, m, n, k, batch_count);
-    if(emulDecision.status != rocblaslt_status_success)
-        return RocBlasLtStatusToHIPStatus(emulDecision.status);
-    if(emulDecision.apply) {
-        const size_t emul_ws =
-            fp64EmulationWorkspaceSize(m, n, k, emulDecision.num_moduli);
-        if(status == HIPBLAS_STATUS_SUCCESS && returnAlgoCount && *returnAlgoCount > 0) {
-            heuristicResultsArray[0].workspaceSize = emul_ws;
-        } else if(requestedAlgoCount >= 1 && returnAlgoCount) {
-            memset(&heuristicResultsArray[0], 0, sizeof(heuristicResultsArray[0]));
-            heuristicResultsArray[0].workspaceSize = emul_ws;
-            heuristicResultsArray[0].state         = HIPBLAS_STATUS_SUCCESS;
-            *returnAlgoCount = 1;
-            status           = HIPBLAS_STATUS_SUCCESS;
+        const Fp64EmulationDecision emulDecision =
+            fp64EmulationDecision(h, type_a, m, n, k, batch_count);
+        if(emulDecision.status != rocblaslt_status_success)
+            return RocBlasLtStatusToHIPStatus(emulDecision.status);
+        if(emulDecision.apply && *returnAlgoCount > 0)
+        {
+            const size_t emul_ws =
+                fp64EmulationWorkspaceSize(m, n, k, emulDecision.num_moduli);
+            for(int i = 0; i < *returnAlgoCount; ++i)
+                heuristicResultsArray[i].workspaceSize = emul_ws;
         }
     }
 
@@ -939,6 +938,7 @@ size_t hipblasLtFp64EmulationWorkspaceSize(int64_t  m,
                                            unsigned num_moduli)
 try
 {
+    if(m < 0 || n < 0 || k < 0) return 0;
     /* Clamp num_moduli to the valid range [2, 18] used by the emulation. */
     if(num_moduli < 2u)  num_moduli = 2u;
     if(num_moduli > 18u) num_moduli = 18u;

@@ -83,6 +83,13 @@ namespace
         EXPECT_GE(ws16, ws8);
     }
 
+    TEST_F(Fp64EmulationHostTest, PublicWorkspaceSizeRejectsNegativeDimensions)
+    {
+        EXPECT_EQ(hipblasLtFp64EmulationWorkspaceSize(-1, 64, 64, 16), 0u);
+        EXPECT_EQ(hipblasLtFp64EmulationWorkspaceSize(64, -1, 64, 16), 0u);
+        EXPECT_EQ(hipblasLtFp64EmulationWorkspaceSize(64, 64, -1, 16), 0u);
+    }
+
     TEST_F(Fp64EmulationHostTest, ParseEnabledEnv)
     {
         EXPECT_EQ(fp64EmulationParseEnabledEnv(nullptr).state, FP64_EMULATION_ENV_UNSET);
